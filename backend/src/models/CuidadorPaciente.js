@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const CuidadorPaciente = sequelize.define('cuidador_paciente', {
+const cuidadorPaciente = sequelize.define('cuidador_paciente', {
   id_cuidador_paciente: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   id_paciente:          { type: DataTypes.INTEGER, allowNull: false },
   id_cuidador:          { type: DataTypes.INTEGER, allowNull: false },
@@ -12,4 +12,4 @@ const CuidadorPaciente = sequelize.define('cuidador_paciente', {
   indexes: [{ unique: true, fields: ['id_paciente', 'id_cuidador'] }]
 });
 
-module.exports = CuidadorPaciente;
+module.exports = cuidadorPaciente;

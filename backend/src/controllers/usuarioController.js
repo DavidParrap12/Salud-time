@@ -1,128 +1,86 @@
-const Usuario = require('../models/usuario');
-
-// DTOs
+const { Usuario, Rol, UsuarioRol } = require('../models');
 const ActualizarUsuarioDTO = require('../dtos/usuario/ActualizarUsuarioDTO');
-const UsuarioResponseDTO = require('../dtos/usuario/UsuarioResponseDTO');
+const UsuarioResponseDTO   = require('../dtos/usuario/UsuarioResponseDTO');
+const AsignarRolDTO        = require('../dtos/rol/AsignarRolDTO');
+const { ok, created, error } = require('../views/response');
 
-// ──────────────────────────────────────────────
-// Obtener todos los usuarios activos
-// ──────────────────────────────────────────────
-const obtenerTodos = async (req, res) => {
+exports.listar = async (req, res) => {
   try {
-    const usuarios = await Usuario.findAll({ where: { estado: true } });
-    return res.status(200).json({
-      ok: true,
-      data: UsuarioResponseDTO.fromList(usuarios)
-    });
-  } catch (error) {
-    console.error('Error en obtenerTodos:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    const usuarios = await Usuario.findAll();
+    return ok(res, UsuarioResponseDTO.fromList(usuarios));
+  } catch (e) {
+    return error(res, 500, 'Error al listar usuarios', e.message);
   }
 };
 
-// ──────────────────────────────────────────────
-// Obtener usuario por ID
-// ──────────────────────────────────────────────
-const obtenerPorId = async (req, res) => {
+exports.obtener = async (req, res) => {
+  try {
+    const usuario = await Usuario.findByPk(req.params.id, {
+      include: [{ model: Rol, as: 'roles' }]
+    });
+    if (!usuario) return error(res, 404, 'Usuario no encontrado');
+    return ok(res, new UsuarioResponseDTO(usuario));
+  } catch (e) {
+    return error(res, 500, 'Error al obtener usuario', e.message);
+  }
+};
+
+exports.actualizar = async (req, res) => {
   try {
     const usuario = await Usuario.findByPk(req.params.id);
-    if (!usuario) {
-      return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
-    }
+    if (!usuario) return error(res, 404, 'Usuario no encontrado');
 
-    return res.status(200).json({
-      ok: true,
-      data: new UsuarioResponseDTO(usuario)
-    });
-  } catch (error) {
-    console.error('Error en obtenerPorId:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// Actualizar usuario (actualización parcial)
-// ──────────────────────────────────────────────
-const actualizar = async (req, res) => {
-  try {
     const dto = new ActualizarUsuarioDTO(req.body);
     const errores = dto.validar();
-    if (errores.length) {
-      return res.status(400).json({ ok: false, errores });
-    }
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
-    const usuario = await Usuario.findByPk(req.params.id);
-    if (!usuario) {
-      return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
-    }
-
-    // Filtrar solo los campos definidos para actualización parcial
-    const camposActualizar = {};
-    if (dto.nombre_completo !== undefined) camposActualizar.nombre_completo = dto.nombre_completo;
-    if (dto.telefono !== undefined) camposActualizar.telefono = dto.telefono;
-    if (dto.edad !== undefined) camposActualizar.edad = dto.edad;
-
-    await usuario.update(camposActualizar);
-
-    return res.status(200).json({
-      ok: true,
-      mensaje: 'Usuario actualizado exitosamente',
-      data: new UsuarioResponseDTO(usuario)
+    await usuario.update({
+      nombre:   dto.nombre_completo ?? usuario.nombre,
+      telefono: dto.telefono        ?? usuario.telefono,
+      edad:     dto.edad            ?? usuario.edad
     });
-  } catch (error) {
-    console.error('Error en actualizar:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+
+    return ok(res, new UsuarioResponseDTO(usuario), 'Usuario actualizado');
+  } catch (e) {
+    return error(res, 500, 'Error al actualizar usuario', e.message);
   }
 };
 
-// ──────────────────────────────────────────────
-// Desactivar usuario (soft delete)
-// ──────────────────────────────────────────────
-const desactivar = async (req, res) => {
+exports.desactivar = async (req, res) => {
   try {
     const usuario = await Usuario.findByPk(req.params.id);
-    if (!usuario) {
-      return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
-    }
-
+    if (!usuario) return error(res, 404, 'Usuario no encontrado');
     await usuario.update({ estado: false });
-
-    return res.status(200).json({
-      ok: true,
-      mensaje: 'Usuario desactivado exitosamente'
-    });
-  } catch (error) {
-    console.error('Error en desactivar:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    return ok(res, null, 'Usuario desactivado');
+  } catch (e) {
+    return error(res, 500, 'Error al desactivar usuario', e.message);
   }
 };
 
-// ──────────────────────────────────────────────
-// Activar usuario
-// ──────────────────────────────────────────────
-const activar = async (req, res) => {
+exports.asignarRol = async (req, res) => {
   try {
     const usuario = await Usuario.findByPk(req.params.id);
-    if (!usuario) {
-      return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
-    }
+    if (!usuario) return error(res, 404, 'Usuario no encontrado');
 
-    await usuario.update({ estado: true });
+    const dto = new AsignarRolDTO(req.body);
+    const errores = dto.validar();
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
-    return res.status(200).json({
-      ok: true,
-      mensaje: 'Usuario activado exitosamente'
+    const rol = await Rol.findByPk(dto.id_rol);
+    if (!rol) return error(res, 404, 'Rol no encontrado');
+
+    const yaTiene = await UsuarioRol.findOne({
+      where: { id_usuario: usuario.id_usuario, id_rol: rol.id_rol }
     });
-  } catch (error) {
-    console.error('Error en activar:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
-  }
-};
+    if (yaTiene) return error(res, 409, 'El usuario ya tiene ese rol');
 
-module.exports = {
-  obtenerTodos,
-  obtenerPorId,
-  actualizar,
-  desactivar,
-  activar
+    const asignacion = await UsuarioRol.create({
+      id_usuario: usuario.id_usuario,
+      id_rol: rol.id_rol
+    });
+
+    return created(res, asignacion, 'Rol asignado');
+  } catch (e) {
+    return error(res, 500, 'Error al asignar rol', e.message);
+  }
 };

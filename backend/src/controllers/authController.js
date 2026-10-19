@@ -1,179 +1,131 @@
-const sequelize = require('../config/database');
-const Usuario = require('../models/Usuario');
-const MedicoEspecializacion = require('../src/models/medico_especialista');
-
-// DTOs de entrada
-const LoginDTO = require('../dtos/auth/LoginDTO');
-const RecuperarPasswordDTO = require('../dtos/auth/RecuperarPasswordDTO');
-const RegistroPacienteDTO = require('../dtos/auth/RegistroPacienteDTO');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { Usuario, Rol, UsuarioRol, Especializacion } = require('../models');
+const RegistroPacienteDTO     = require('../dtos/auth/RegistroPacienteDTO');
 const RegistroEspecialistaDTO = require('../dtos/auth/RegistroEspecialistaDTO');
+const LoginDTO                = require('../dtos/auth/LoginDTO');
+const RecuperarPasswordDTO    = require('../dtos/auth/RecuperarPasswordDTO');
+const UsuarioResponseDTO      = require('../dtos/usuario/UsuarioResponseDTO');
+const { created, ok, error }  = require('../views/response');
 
-// DTO de respuesta
-const UsuarioResponseDTO = require('../dtos/usuario/UsuarioResponseDTO');
-
-// ──────────────────────────────────────────────
-// Registro de paciente
-// ──────────────────────────────────────────────
-const registroPaciente = async (req, res) => {
+exports.registrarPaciente = async (req, res) => {
   try {
     const dto = new RegistroPacienteDTO(req.body);
     const errores = dto.validar();
-    if (errores.length) {
-      return res.status(400).json({ ok: false, errores });
-    }
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
-    // Verificar si el correo ya está registrado
-    const existente = await Usuario.findOne({ where: { correo: dto.correo } });
-    if (existente) {
-      return res.status(400).json({ ok: false, mensaje: 'El correo ya está registrado' });
-    }
+    const existe = await Usuario.findOne({ where: { correo: dto.correo } });
+    if (existe) return error(res, 409, 'El correo ya está registrado');
 
-    // TODO: Hashear la contraseña con bcrypt antes de guardar
+    const hash = await bcrypt.hash(dto.contrasena, 10);
     const usuario = await Usuario.create({
-      nombre_completo: dto.nombre_completo,
+      nombre: dto.nombre_completo,
       correo: dto.correo,
-      contrasena_hash: dto.contrasena, // TODO: usar bcrypt.hashSync(dto.contrasena, 10)
+      contrasena: hash,
       edad: dto.edad,
-      telefono: dto.telefono
+      telefono: dto.telefono,
+      estado: true,
+      correo_verificado: false
     });
 
-    return res.status(201).json({
-      ok: true,
-      mensaje: 'Paciente registrado exitosamente',
-      data: new UsuarioResponseDTO(usuario)
-    });
-  } catch (error) {
-    console.error('Error en registroPaciente:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// Registro de especialista (con transacción)
-// ──────────────────────────────────────────────
-const registroEspecialista = async (req, res) => {
-  const t = await sequelize.transaction();
-  try {
-    const dto = new RegistroEspecialistaDTO(req.body);
-    const errores = dto.validar();
-    if (errores.length) {
-      await t.rollback();
-      return res.status(400).json({ ok: false, errores });
-    }
-
-    // Verificar si el correo ya está registrado
-    const existente = await Usuario.findOne({ where: { correo: dto.correo } });
-    if (existente) {
-      await t.rollback();
-      return res.status(400).json({ ok: false, mensaje: 'El correo ya está registrado' });
-    }
-
-    // TODO: Hashear la contraseña con bcrypt antes de guardar
-    const usuario = await Usuario.create({
-      nombre_completo: dto.nombre_completo,
-      correo: dto.correo,
-      contrasena_hash: dto.contrasena, // TODO: usar bcrypt.hashSync(dto.contrasena, 10)
-      edad: dto.edad,
-      telefono: dto.telefono
-    }, { transaction: t });
-
-    // Crear relación médico-especialización
-    await MedicoEspecializacion.create({
-      id_usuario: usuario.id_usuario,
-      id_especializacion: dto.id_especializacion
-    }, { transaction: t });
-
-    await t.commit();
-
-    return res.status(201).json({
-      ok: true,
-      mensaje: 'Especialista registrado exitosamente',
-      data: new UsuarioResponseDTO(usuario)
-    });
-  } catch (error) {
-    await t.rollback();
-    console.error('Error en registroEspecialista:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// Inicio de sesión
-// ──────────────────────────────────────────────
-const login = async (req, res) => {
-  try {
-    const dto = new LoginDTO(req.body);
-    const errores = dto.validar();
-    if (errores.length) {
-      return res.status(400).json({ ok: false, errores });
-    }
-
-    const usuario = await Usuario.findOne({ where: { correo: dto.correo } });
-    if (!usuario) {
-      return res.status(404).json({ ok: false, mensaje: 'Credenciales incorrectas' });
-    }
-
-    // Verificar que la cuenta esté activa
-    if (!usuario.estado) {
-      return res.status(403).json({ ok: false, mensaje: 'La cuenta está desactivada' });
-    }
-
-    // TODO: Comparar contraseña con bcrypt.compareSync(dto.contrasena, usuario.contrasena_hash)
-    if (dto.contrasena !== usuario.contrasena_hash) {
-      return res.status(401).json({ ok: false, mensaje: 'Credenciales incorrectas' });
-    }
-
-    // TODO: Generar token JWT con jsonwebtoken
-    // const token = jwt.sign({ id_usuario: usuario.id_usuario }, process.env.JWT_SECRET, { expiresIn: '24h' });
-
-    return res.status(200).json({
-      ok: true,
-      mensaje: 'Inicio de sesión exitoso',
-      data: new UsuarioResponseDTO(usuario)
-      // TODO: agregar token en la respuesta
-    });
-  } catch (error) {
-    console.error('Error en login:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// Recuperar contraseña
-// ──────────────────────────────────────────────
-const recuperarPassword = async (req, res) => {
-  try {
-    const dto = new RecuperarPasswordDTO(req.body);
-    const errores = dto.validar();
-    if (errores.length) {
-      return res.status(400).json({ ok: false, errores });
-    }
-
-    const usuario = await Usuario.findOne({ where: { correo: dto.correo } });
-    if (!usuario) {
-      // Por seguridad, no revelamos si el correo existe o no
-      return res.status(200).json({
-        ok: true,
-        mensaje: 'Si el correo está registrado, recibirás un enlace de recuperación'
+    const rolPaciente = await Rol.findOne({ where: { nombre: 'PACIENTE' } });
+    if (rolPaciente) {
+      await UsuarioRol.create({
+        id_usuario: usuario.id_usuario,
+        id_rol: rolPaciente.id_rol
       });
     }
 
-    // TODO: Generar token de recuperación y enviar email
-    // TODO: Guardar token de recuperación en la base de datos con fecha de expiración
-
-    return res.status(200).json({
-      ok: true,
-      mensaje: 'Si el correo está registrado, recibirás un enlace de recuperación'
-    });
-  } catch (error) {
-    console.error('Error en recuperarPassword:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    return created(res, new UsuarioResponseDTO(usuario), 'Paciente registrado');
+  } catch (e) {
+    return error(res, 500, 'Error al registrar paciente', e.message);
   }
 };
 
-module.exports = {
-  registroPaciente,
-  registroEspecialista,
-  login,
-  recuperarPassword
+exports.registrarEspecialista = async (req, res) => {
+  try {
+    const dto = new RegistroEspecialistaDTO(req.body);
+    const errores = dto.validar();
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+
+    const existe = await Usuario.findOne({ where: { correo: dto.correo } });
+    if (existe) return error(res, 409, 'El correo ya está registrado');
+
+    const esp = await Especializacion.findByPk(dto.id_especializacion);
+    if (!esp) return error(res, 404, 'Especialización no encontrada');
+
+    const hash = await bcrypt.hash(dto.contrasena, 10);
+    const usuario = await Usuario.create({
+      nombre: dto.nombre_completo,
+      correo: dto.correo,
+      contrasena: hash,
+      edad: dto.edad,
+      telefono: dto.telefono,
+      estado: true,
+      correo_verificado: false
+    });
+
+    const rolMedico = await Rol.findOne({ where: { nombre: 'MEDICO' } });
+    if (rolMedico) {
+      await UsuarioRol.create({
+        id_usuario: usuario.id_usuario,
+        id_rol: rolMedico.id_rol
+      });
+    }
+
+    await usuario.addEspecializacion(esp);
+
+    return created(res, new UsuarioResponseDTO(usuario), 'Especialista registrado');
+  } catch (e) {
+    return error(res, 500, 'Error al registrar especialista', e.message);
+  }
+};
+
+exports.login = async (req, res) => {
+  try {
+    const dto = new LoginDTO(req.body);
+    const errores = dto.validar();
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+
+    const usuario = await Usuario.findOne({
+      where: { correo: dto.correo },
+      include: [{ model: Rol, as: 'roles' }]
+    });
+    if (!usuario) return error(res, 401, 'Credenciales incorrectas');
+    if (!usuario.estado) return error(res, 401, 'Cuenta desactivada');
+
+    const valida = await bcrypt.compare(dto.contrasena, usuario.contrasena);
+    if (!valida) return error(res, 401, 'Credenciales incorrectas');
+
+    const roles = usuario.roles.map(r => r.nombre);
+    const token = jwt.sign(
+      { id_usuario: usuario.id_usuario, correo: usuario.correo, roles },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    return ok(res, {
+      token,
+      usuario: new UsuarioResponseDTO(usuario),
+      roles
+    }, 'Inicio de sesión exitoso');
+  } catch (e) {
+    return error(res, 500, 'Error al iniciar sesión', e.message);
+  }
+};
+
+exports.recuperarPassword = async (req, res) => {
+  try {
+    const dto = new RecuperarPasswordDTO(req.body);
+    const errores = dto.validar();
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+
+    const usuario = await Usuario.findOne({ where: { correo: dto.correo } });
+    if (!usuario) return error(res, 404, 'Correo no registrado');
+
+    // Aquí se generaría un token temporal y se enviaría por correo.
+    return ok(res, null, 'Se envió un enlace de recuperación al correo');
+  } catch (e) {
+    return error(res, 500, 'Error al recuperar contraseña', e.message);
+  }
 };

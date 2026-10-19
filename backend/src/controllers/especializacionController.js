@@ -1,47 +1,12 @@
-// TODO: Crear el modelo ../models/especializacion.js para que este controller funcione
-const Especializacion = require('../models/Especializacion');
+const { Especializacion } = require('../models');
+const EspecializacionResponseDTO = require('../dtos/especializacion/EspecializacionResponseDTO');
+const { ok, error } = require('../views/response');
 
-// DTOs
-const EspecializacionResponseDTO = require('../dtos/especialización/EspecializacionResponseDTO');
-
-// ──────────────────────────────────────────────
-// Obtener todas las especializaciones
-// ──────────────────────────────────────────────
-const obtenerTodas = async (req, res) => {
+exports.listar = async (req, res) => {
   try {
-    const especializaciones = await Especializacion.findAll();
-
-    return res.status(200).json({
-      ok: true,
-      data: EspecializacionResponseDTO.fromList(especializaciones)
-    });
-  } catch (error) {
-    console.error('Error en obtenerTodas especializaciones:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    const lista = await Especializacion.findAll();
+    return ok(res, EspecializacionResponseDTO.fromList(lista));
+  } catch (e) {
+    return error(res, 500, 'Error al listar especializaciones', e.message);
   }
-};
-
-// ──────────────────────────────────────────────
-// Obtener especialización por ID
-// ──────────────────────────────────────────────
-const obtenerPorId = async (req, res) => {
-  try {
-    const especializacion = await Especializacion.findByPk(req.params.id);
-    if (!especializacion) {
-      return res.status(404).json({ ok: false, mensaje: 'Especialización no encontrada' });
-    }
-
-    return res.status(200).json({
-      ok: true,
-      data: new EspecializacionResponseDTO(especializacion)
-    });
-  } catch (error) {
-    console.error('Error en obtenerPorId especialización:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
-  }
-};
-
-module.exports = {
-  obtenerTodas,
-  obtenerPorId
 };

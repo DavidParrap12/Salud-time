@@ -8,12 +8,13 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
-    dialect: 'mysql',
+    dialect: 'postgres',
     logging: false,
     define: {
       timestamps: false,
       freezeTableName: true
-    }
+    },
+    pool: { max: 5, min: 0, acquire: 30000, idle: 10000 }
   }
 );
 

@@ -1,90 +1,96 @@
-const DosisProgramada = require('../models/DosisProgramada');
+const { DosisProgramada, RegistroDosis, Notificacion, CuidadorPaciente } = require('../models');
+const DosisProgramadaResponseDTO = require('../dtos/dosis/DosisProgramadaResponseDTO');
+const ConfirmarDosisDTO          = require('../dtos/dosis/ConfirmarDosisDTO');
+const OmitirDosisDTO             = require('../dtos/dosis/OmitirDosisDTO');
+const { ok, created, error }     = require('../views/response');
 
-// Estados válidos para las dosis
-const ESTADOS_VALIDOS = ['PENDIENTE', 'TOMADA', 'OMITIDA', 'POSPUESTA'];
-
-// ──────────────────────────────────────────────
-// Obtener dosis por recordatorio
-// ──────────────────────────────────────────────
-const obtenerPorRecordatorio = async (req, res) => {
+exports.listarPendientes = async (req, res) => {
   try {
-    const dosis = await DosisProgramada.findAll({
-      where: { id_recordatorio: req.params.id_recordatorio },
-      order: [['fecha_hora', 'ASC']]
-    });
-
-    return res.status(200).json({
-      ok: true,
-      data: dosis
-    });
-  } catch (error) {
-    console.error('Error en obtenerPorRecordatorio:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    const dosis = await DosisProgramada.findAll({ where: { estado: 'PENDIENTE' } });
+    return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
+  } catch (e) {
+    return error(res, 500, 'Error al listar dosis pendientes', e.message);
   }
 };
 
-// ──────────────────────────────────────────────
-// Actualizar estado de una dosis programada
-// ──────────────────────────────────────────────
-const actualizarEstado = async (req, res) => {
+exports.confirmar = async (req, res) => {
   try {
-    const { estado } = req.body;
-
-    // Validar que el estado sea uno de los permitidos
-    if (!estado || !ESTADOS_VALIDOS.includes(estado)) {
-      return res.status(400).json({
-        ok: false,
-        mensaje: `El estado debe ser uno de: ${ESTADOS_VALIDOS.join(', ')}`
-      });
-    }
-
     const dosis = await DosisProgramada.findByPk(req.params.id);
-    if (!dosis) {
-      return res.status(404).json({ ok: false, mensaje: 'Dosis programada no encontrada' });
-    }
+    if (!dosis) return error(res, 404, 'Dosis no encontrada');
+    if (dosis.estado !== 'PENDIENTE') return error(res, 400, 'La dosis ya fue registrada');
 
-    await dosis.update({ estado });
+    const dto = new ConfirmarDosisDTO(req.body);
+    const errores = dto.validar();
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
-    return res.status(200).json({
-      ok: true,
-      mensaje: 'Estado de dosis actualizado exitosamente',
-      data: dosis
+    await dosis.update({ estado: 'TOMADA' });
+    const registro = await RegistroDosis.create({
+      id_dosis_programada: dosis.id_dosis_programada,
+      fecha_confirmacion: new Date(),
+      observaciones: dto.observaciones
     });
-  } catch (error) {
-    console.error('Error en actualizarEstado:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+
+    return created(res, { dosis, registro }, 'Dosis confirmada');
+  } catch (e) {
+    return error(res, 500, 'Error al confirmar dosis', e.message);
   }
 };
 
-// ──────────────────────────────────────────────
-// Obtener dosis pendientes (filtro opcional por recordatorio)
-// ──────────────────────────────────────────────
-const obtenerPendientes = async (req, res) => {
+exports.omitir = async (req, res) => {
   try {
-    const where = { estado: 'PENDIENTE' };
+    const dosis = await DosisProgramada.findByPk(req.params.id);
+    if (!dosis) return error(res, 404, 'Dosis no encontrada');
+    if (dosis.estado !== 'PENDIENTE') return error(res, 400, 'La dosis ya fue registrada');
 
-    // Filtro opcional por id_recordatorio
-    if (req.query.id_recordatorio) {
-      where.id_recordatorio = req.query.id_recordatorio;
+    const dto = new OmitirDosisDTO(req.body);
+    const errores = dto.validar();
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+
+    await dosis.update({ estado: 'OMITIDA' });
+
+    const registro = await RegistroDosis.create({
+      id_dosis_programada: dosis.id_dosis_programada,
+      fecha_confirmacion: new Date(),
+      observaciones: dto.motivo
+    });
+
+    // Notificar a los cuidadores (RF41)
+    if (req.body.id_paciente) {
+      const relaciones = await CuidadorPaciente.findAll({
+        where: { id_paciente: req.body.id_paciente, estado: true }
+      });
+      for (const rel of relaciones) {
+        await Notificacion.create({
+          id_dosis_programada: dosis.id_dosis_programada,
+          id_usuario_destinatario: rel.id_cuidador,
+          tipo: 'DOSIS_OMITIDA',
+          mensaje: `El paciente no confirmó una dosis programada para ${dosis.fecha_hora}`,
+          estado: 'PENDIENTE'
+        });
+      }
     }
 
-    const dosis = await DosisProgramada.findAll({
-      where,
-      order: [['fecha_hora', 'ASC']]
-    });
-
-    return res.status(200).json({
-      ok: true,
-      data: dosis
-    });
-  } catch (error) {
-    console.error('Error en obtenerPendientes:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    return created(res, { dosis, registro }, 'Dosis registrada como omitida');
+  } catch (e) {
+    return error(res, 500, 'Error al omitir dosis', e.message);
   }
 };
 
-module.exports = {
-  obtenerPorRecordatorio,
-  actualizarEstado,
-  obtenerPendientes
+exports.generarAlerta = async (req, res) => {
+  try {
+    const dosis = await DosisProgramada.findByPk(req.body.id_dosis_programada);
+    if (!dosis) return error(res, 404, 'Dosis no encontrada');
+
+    const notificacion = await Notificacion.create({
+      id_dosis_programada: dosis.id_dosis_programada,
+      id_usuario_destinatario: req.body.id_usuario_destinatario,
+      tipo: 'RECORDATORIO',
+      mensaje: `Recuerde tomar su medicamento programado para ${dosis.fecha_hora}`,
+      estado: 'PENDIENTE'
+    });
+
+    return created(res, notificacion, 'Alerta generada');
+  } catch (e) {
+    return error(res, 500, 'Error al generar alerta', e.message);
+  }
 };

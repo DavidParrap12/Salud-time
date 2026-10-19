@@ -1,127 +1,93 @@
-const CuidadorPaciente = require('../models/CuidadorPaciente');
-const Usuario = require('../models/Usuario');
+const { Usuario, CuidadorPaciente, Rol, UsuarioRol } = require('../models');
+const CrearCuidadorDTO      = require('../dtos/cuidador/CrearCuidadorDTO');
+const ActualizarCuidadorDTO = require('../dtos/cuidador/ActualizarCuidadorDTO');
+const CuidadorResponseDTO   = require('../dtos/cuidador/CuidadorResponseDTO');
+const { ok, created, error } = require('../views/response');
 
-// DTOs
-const CrearCuidadorDTO = require('../dtos/cuidador/CrearCuidadorDTO');
+exports.listarPorPaciente = async (req, res) => {
+  try {
+    const cuidadores = await CuidadorPaciente.findAll({
+      where: { id_paciente: req.params.id_paciente, estado: true }
+    });
+    return ok(res, CuidadorResponseDTO.fromList(cuidadores));
+  } catch (e) {
+    return error(res, 500, 'Error al listar cuidadores', e.message);
+  }
+};
 
-// ──────────────────────────────────────────────
-// Asignar cuidador a un paciente
-// ──────────────────────────────────────────────
-const asignarCuidador = async (req, res) => {
+exports.crear = async (req, res) => {
   try {
     const dto = new CrearCuidadorDTO(req.body);
     const errores = dto.validar();
-    if (errores.length) {
-      return res.status(400).json({ ok: false, errores });
-    }
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
-    // Buscar al cuidador por su correo
-    const cuidador = await Usuario.findOne({ where: { correo: dto.correo_cuidador } });
-    if (!cuidador) {
-      return res.status(404).json({
-        ok: false,
-        mensaje: 'No se encontró un usuario con ese correo de cuidador'
-      });
-    }
+    const paciente = await Usuario.findByPk(dto.id_paciente);
+    if (!paciente) return error(res, 404, 'Paciente no encontrado');
 
-    // Verificar que no sea el mismo paciente
-    if (cuidador.id_usuario === dto.id_paciente) {
-      return res.status(400).json({
-        ok: false,
-        mensaje: 'Un paciente no puede ser su propio cuidador'
-      });
-    }
+    const cuidadorUsuario = await Usuario.findOne({ where: { correo: dto.correo_cuidador } });
+    if (!cuidadorUsuario) return error(res, 404, 'El cuidador debe estar registrado como usuario');
 
-    // Verificar si la relación ya existe
-    const existente = await CuidadorPaciente.findOne({
-      where: {
-        id_paciente: dto.id_paciente,
-        id_cuidador: cuidador.id_usuario
-      }
+    if (cuidadorUsuario.id_usuario === paciente.id_usuario)
+      return error(res, 400, 'El cuidador no puede ser el mismo paciente');
+
+    const existe = await CuidadorPaciente.findOne({
+      where: { id_paciente: dto.id_paciente, id_cuidador: cuidadorUsuario.id_usuario }
     });
-
-    if (existente) {
-      // Si existe pero estaba desactivada, reactivar
-      if (!existente.estado) {
-        await existente.update({ estado: true, parentesco: dto.parentesco });
-        return res.status(200).json({
-          ok: true,
-          mensaje: 'Relación de cuidador reactivada exitosamente',
-          data: existente
-        });
-      }
-      return res.status(400).json({
-        ok: false,
-        mensaje: 'Esta relación cuidador-paciente ya existe'
-      });
-    }
+    if (existe) return error(res, 409, 'Ya existe esa relación');
 
     const relacion = await CuidadorPaciente.create({
       id_paciente: dto.id_paciente,
-      id_cuidador: cuidador.id_usuario,
-      parentesco: dto.parentesco
+      id_cuidador: cuidadorUsuario.id_usuario,
+      parentesco: dto.parentesco,
+      estado: true
     });
 
-    return res.status(201).json({
-      ok: true,
-      mensaje: 'Cuidador asignado exitosamente',
-      data: relacion
-    });
-  } catch (error) {
-    console.error('Error en asignarCuidador:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// Obtener cuidadores de un paciente
-// ──────────────────────────────────────────────
-const obtenerCuidadoresPorPaciente = async (req, res) => {
-  try {
-    const cuidadores = await CuidadorPaciente.findAll({
-      where: {
-        id_paciente: req.params.id_paciente,
-        estado: true
-      }
-    });
-
-    return res.status(200).json({
-      ok: true,
-      data: cuidadores
-    });
-  } catch (error) {
-    console.error('Error en obtenerCuidadoresPorPaciente:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// Eliminar relación cuidador-paciente (soft delete)
-// ──────────────────────────────────────────────
-const eliminarRelacion = async (req, res) => {
-  try {
-    const relacion = await CuidadorPaciente.findByPk(req.params.id);
-    if (!relacion) {
-      return res.status(404).json({
-        ok: false,
-        mensaje: 'Relación cuidador-paciente no encontrada'
+    const rolCuidador = await Rol.findOne({ where: { nombre: 'CUIDADOR' } });
+    if (rolCuidador) {
+      const yaTiene = await UsuarioRol.findOne({
+        where: { id_usuario: cuidadorUsuario.id_usuario, id_rol: rolCuidador.id_rol }
       });
+      if (!yaTiene) {
+        await UsuarioRol.create({
+          id_usuario: cuidadorUsuario.id_usuario,
+          id_rol: rolCuidador.id_rol
+        });
+      }
     }
 
-    await relacion.update({ estado: false });
-
-    return res.status(200).json({
-      ok: true,
-      mensaje: 'Relación cuidador-paciente eliminada exitosamente'
-    });
-  } catch (error) {
-    console.error('Error en eliminarRelacion:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    return created(res, new CuidadorResponseDTO(relacion), 'Cuidador registrado');
+  } catch (e) {
+    return error(res, 500, 'Error al registrar cuidador', e.message);
   }
 };
 
-module.exports = {
-  asignarCuidador,
-  obtenerCuidadoresPorPaciente,
-  eliminarRelacion
+exports.actualizar = async (req, res) => {
+  try {
+    const rel = await CuidadorPaciente.findByPk(req.params.id);
+    if (!rel) return error(res, 404, 'Relación no encontrada');
+
+    const dto = new ActualizarCuidadorDTO(req.body);
+    const errores = dto.validar();
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+
+    await rel.update({
+      parentesco: dto.parentesco ?? rel.parentesco,
+      estado:     dto.estado     ?? rel.estado
+    });
+
+    return ok(res, new CuidadorResponseDTO(rel), 'Cuidador actualizado');
+  } catch (e) {
+    return error(res, 500, 'Error al actualizar cuidador', e.message);
+  }
+};
+
+exports.eliminar = async (req, res) => {
+  try {
+    const rel = await CuidadorPaciente.findByPk(req.params.id);
+    if (!rel) return error(res, 404, 'Relación no encontrada');
+    await rel.destroy();
+    return ok(res, null, 'Cuidador eliminado');
+  } catch (e) {
+    return error(res, 500, 'Error al eliminar cuidador', e.message);
+  }
 };

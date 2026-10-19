@@ -17,39 +17,26 @@ const Notificacion        = require('./Notificacion');
 Usuario.belongsToMany(Rol, { through: UsuarioRol, foreignKey: 'id_usuario', otherKey: 'id_rol', as: 'roles' });
 Rol.belongsToMany(Usuario, { through: UsuarioRol, foreignKey: 'id_rol', otherKey: 'id_usuario', as: 'usuarios' });
 
-// USUARIO ↔ ESPECIALIZACION (médicos)
+// USUARIO ↔ ESPECIALIZACION
 Usuario.belongsToMany(Especializacion, {
-  through: MedicoEspecializacion,
-  foreignKey: 'id_usuario',
-  otherKey: 'id_especializacion',
-  as: 'especializaciones'
+  through: MedicoEspecializacion, foreignKey: 'id_usuario', otherKey: 'id_especializacion', as: 'especializaciones'
 });
 Especializacion.belongsToMany(Usuario, {
-  through: MedicoEspecializacion,
-  foreignKey: 'id_especializacion',
-  otherKey: 'id_usuario',
-  as: 'medicos'
+  through: MedicoEspecializacion, foreignKey: 'id_especializacion', otherKey: 'id_usuario', as: 'medicos'
 });
 
-// USUARIO (paciente) ↔ USUARIO (cuidador)
+// USUARIO ↔ USUARIO (cuidador-paciente)
 Usuario.belongsToMany(Usuario, {
-  through: CuidadorPaciente,
-  foreignKey: 'id_paciente',
-  otherKey: 'id_cuidador',
-  as: 'cuidadores'
+  through: CuidadorPaciente, foreignKey: 'id_paciente', otherKey: 'id_cuidador', as: 'cuidadores'
 });
 Usuario.belongsToMany(Usuario, {
-  through: CuidadorPaciente,
-  foreignKey: 'id_cuidador',
-  otherKey: 'id_paciente',
-  as: 'pacientesACargo'
+  through: CuidadorPaciente, foreignKey: 'id_cuidador', otherKey: 'id_paciente', as: 'pacientesACargo'
 });
 
-// USUARIO ↔ TRATAMIENTO (paciente)
+// USUARIO ↔ TRATAMIENTO
 Usuario.hasMany(Tratamiento, { foreignKey: 'id_paciente', as: 'tratamientos' });
 Tratamiento.belongsTo(Usuario, { foreignKey: 'id_paciente', as: 'paciente' });
 
-// USUARIO ↔ TRATAMIENTO (médico)
 Usuario.hasMany(Tratamiento, { foreignKey: 'id_medico', as: 'tratamientosPrescritos' });
 Tratamiento.belongsTo(Usuario, { foreignKey: 'id_medico', as: 'medico' });
 
@@ -65,7 +52,7 @@ Recordatorio.belongsTo(Tratamiento, { foreignKey: 'id_tratamiento', as: 'tratami
 Recordatorio.hasMany(DosisProgramada, { foreignKey: 'id_recordatorio', as: 'dosis' });
 DosisProgramada.belongsTo(Recordatorio, { foreignKey: 'id_recordatorio', as: 'recordatorio' });
 
-// DOSIS_PROGRAMADA ↔ REGISTRO_DOSIS (1:1)
+// DOSIS_PROGRAMADA ↔ REGISTRO_DOSIS
 DosisProgramada.hasOne(RegistroDosis, { foreignKey: 'id_dosis_programada', as: 'registro' });
 RegistroDosis.belongsTo(DosisProgramada, { foreignKey: 'id_dosis_programada', as: 'dosis' });
 

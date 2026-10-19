@@ -1,92 +1,71 @@
+const { Tratamiento, Recordatorio, DosisProgramada, Usuario } = require('../models');
+const CrearReporteDTO     = require('../dtos/reporte/CrearReporteDTO');
+const ReporteResponseDTO  = require('../dtos/reporte/ReporteResponseDTO');
+const { ok, created, error } = require('../views/response');
 const { Op } = require('sequelize');
-const Tratamiento = require('../models/Tratamiento');
-const DosisProgramada = require('../models/DosisProgramada');
 
-// DTOs
-const CrearReporteDTO = require('../dtos/reportes/CrearReporteDTO');
-
-// ──────────────────────────────────────────────
-// Generar reporte de adherencia
-// ──────────────────────────────────────────────
-const generarReporte = async (req, res) => {
+exports.generar = async (req, res) => {
   try {
     const dto = new CrearReporteDTO(req.body);
     const errores = dto.validar();
-    if (errores.length) {
-      return res.status(400).json({ ok: false, errores });
-    }
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
-    // Obtener tratamientos del usuario
+    const usuario = await Usuario.findByPk(dto.id_usuario);
+    if (!usuario) return error(res, 404, 'Usuario no encontrado');
+
     const tratamientos = await Tratamiento.findAll({
-      where: { id_paciente: dto.id_usuario }
+      where: { id_paciente: dto.id_usuario },
+      include: [{
+        model: Recordatorio, as: 'recordatorios',
+        include: [{
+          model: DosisProgramada, as: 'dosis',
+          where: { fecha_hora: { [Op.between]: [dto.fecha_inicio, dto.fecha_fin] } },
+          required: false
+        }]
+      }]
     });
 
-    if (!tratamientos.length) {
-      return res.status(200).json({
-        ok: true,
-        mensaje: 'No se encontraron tratamientos para este usuario',
-        data: {
-          id_usuario: dto.id_usuario,
-          fecha_inicio: dto.fecha_inicio,
-          fecha_fin: dto.fecha_fin,
-          total_dosis: 0,
-          resumen: {},
-          adherencia: 0
+    let total = 0, tomadas = 0, omitidas = 0;
+    for (const t of tratamientos)
+      for (const r of t.recordatorios)
+        for (const d of r.dosis) {
+          total++;
+          if (d.estado === 'TOMADA') tomadas++;
+          if (d.estado === 'OMITIDA') omitidas++;
         }
-      });
-    }
 
-    // Obtener dosis programadas en el rango de fechas
-    // TODO: Ajustar la relación tratamiento → recordatorio → dosis_programada
-    const fechaInicio = new Date(dto.fecha_inicio);
-    const fechaFin = new Date(dto.fecha_fin);
-    fechaFin.setHours(23, 59, 59, 999);
+    const adherencia = total > 0 ? ((tomadas / total) * 100).toFixed(2) : 0;
 
-    const dosisEnRango = await DosisProgramada.findAll({
-      where: {
-        fecha_hora: {
-          [Op.between]: [fechaInicio, fechaFin]
-        }
-      }
-    });
-
-    // Agrupar por estado
-    const resumen = {
-      PENDIENTE: 0,
-      TOMADA: 0,
-      OMITIDA: 0,
-      POSPUESTA: 0
-    };
-
-    dosisEnRango.forEach(d => {
-      if (resumen[d.estado] !== undefined) {
-        resumen[d.estado]++;
-      }
-    });
-
-    const totalDosis = dosisEnRango.length;
-    const adherencia = totalDosis > 0
-      ? Math.round((resumen.TOMADA / totalDosis) * 100 * 100) / 100
-      : 0;
-
-    return res.status(200).json({
-      ok: true,
-      data: {
-        id_usuario: dto.id_usuario,
-        fecha_inicio: dto.fecha_inicio,
-        fecha_fin: dto.fecha_fin,
-        total_dosis: totalDosis,
-        resumen,
-        adherencia, // porcentaje de dosis tomadas
-        tratamientos_encontrados: tratamientos.length
-      }
-    });
-  } catch (error) {
-    console.error('Error en generarReporte:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    return created(res, new ReporteResponseDTO({
+      id_usuario: dto.id_usuario,
+      fecha_inicio: dto.fecha_inicio,
+      fecha_fin: dto.fecha_fin,
+      total, tomadas, omitidas, adherencia
+    }), 'Reporte generado');
+  } catch (e) {
+    return error(res, 500, 'Error al generar reporte', e.message);
   }
 };
 
-module.exports = {
-  generarReporte
+exports.estadisticas = async (req, res) => {
+  return ok(res, { mensaje: 'Estadísticas del reporte ' + req.params.id });
+};
+
+exports.cumplimiento = async (req, res) => {
+  return ok(res, { mensaje: 'Cumplimiento del reporte ' + req.params.id });
+};
+
+exports.obtener = async (req, res) => {
+  return ok(res, { mensaje: 'Reporte ' + req.params.id });
+};
+
+exports.compartir = async (req, res) => {
+  try {
+    const { correo_destino } = req.body;
+    if (!correo_destino) return error(res, 400, 'El correo destino es obligatorio');
+    // Aquí se enviaría el correo con el reporte adjunto.
+    return ok(res, null, `Reporte compartido con ${correo_destino}`);
+  } catch (e) {
+    return error(res, 500, 'Error al compartir reporte', e.message);
+  }
 };

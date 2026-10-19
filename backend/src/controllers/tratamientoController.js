@@ -1,146 +1,87 @@
-const Tratamiento = require('../models/Tratamiento');
-
-// DTOs
-const CrearTratamientoDTO = require('../dtos/tratamiento/CrearTratamientoDTO');
+const { Tratamiento, Usuario, Medicamento } = require('../models');
+const CrearTratamientoDTO      = require('../dtos/tratamiento/CrearTratamientoDTO');
 const ActualizarTratamientoDTO = require('../dtos/tratamiento/ActualizarTratamientoDTO');
-const TratamientoResponseDTO = require('../dtos/tratamiento/TratamientoResponseDTO');
+const TratamientoResponseDTO   = require('../dtos/tratamiento/TratamientoResponseDTO');
+const { ok, created, error }   = require('../views/response');
 
-// ──────────────────────────────────────────────
-// Crear tratamiento
-// ──────────────────────────────────────────────
-const crear = async (req, res) => {
+exports.listarPorPaciente = async (req, res) => {
+  try {
+    const tratamientos = await Tratamiento.findAll({
+      where: { id_paciente: req.params.id_paciente }
+    });
+    return ok(res, TratamientoResponseDTO.fromList(tratamientos));
+  } catch (e) {
+    return error(res, 500, 'Error al listar tratamientos', e.message);
+  }
+};
+
+exports.obtener = async (req, res) => {
+  try {
+    const t = await Tratamiento.findByPk(req.params.id);
+    if (!t) return error(res, 404, 'Tratamiento no encontrado');
+    return ok(res, new TratamientoResponseDTO(t));
+  } catch (e) {
+    return error(res, 500, 'Error al obtener tratamiento', e.message);
+  }
+};
+
+exports.crear = async (req, res) => {
   try {
     const dto = new CrearTratamientoDTO(req.body);
     const errores = dto.validar();
-    if (errores.length) {
-      return res.status(400).json({ ok: false, errores });
-    }
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
-    const tratamiento = await Tratamiento.create({
+    const paciente = await Usuario.findByPk(dto.id_paciente);
+    if (!paciente) return error(res, 404, 'Paciente no encontrado');
+
+    const medicamento = await Medicamento.findByPk(dto.id_medicamento);
+    if (!medicamento) return error(res, 404, 'Medicamento no encontrado');
+
+    const t = await Tratamiento.create({
       id_paciente: dto.id_paciente,
       id_medicamento: dto.id_medicamento,
       id_medico: dto.id_medico,
       dosis: dto.dosis,
       fecha_inicio: dto.fecha_inicio,
-      fecha_fin: dto.fecha_fin
+      fecha_fin: dto.fecha_fin,
+      estado: true
     });
 
-    return res.status(201).json({
-      ok: true,
-      mensaje: 'Tratamiento creado exitosamente',
-      data: new TratamientoResponseDTO(tratamiento)
-    });
-  } catch (error) {
-    console.error('Error en crear tratamiento:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    return created(res, new TratamientoResponseDTO(t), 'Tratamiento creado');
+  } catch (e) {
+    return error(res, 500, 'Error al crear tratamiento', e.message);
   }
 };
 
-// ──────────────────────────────────────────────
-// Obtener todos los tratamientos (filtro opcional por paciente)
-// ──────────────────────────────────────────────
-const obtenerTodos = async (req, res) => {
+exports.actualizar = async (req, res) => {
   try {
-    const where = {};
-    // Filtro opcional por id_paciente vía query param
-    if (req.query.id_paciente) {
-      where.id_paciente = req.query.id_paciente;
-    }
+    const t = await Tratamiento.findByPk(req.params.id);
+    if (!t) return error(res, 404, 'Tratamiento no encontrado');
 
-    const tratamientos = await Tratamiento.findAll({ where });
-
-    return res.status(200).json({
-      ok: true,
-      data: TratamientoResponseDTO.fromList(tratamientos)
-    });
-  } catch (error) {
-    console.error('Error en obtenerTodos tratamientos:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// Obtener tratamiento por ID
-// ──────────────────────────────────────────────
-const obtenerPorId = async (req, res) => {
-  try {
-    const tratamiento = await Tratamiento.findByPk(req.params.id);
-    if (!tratamiento) {
-      return res.status(404).json({ ok: false, mensaje: 'Tratamiento no encontrado' });
-    }
-
-    return res.status(200).json({
-      ok: true,
-      data: new TratamientoResponseDTO(tratamiento)
-    });
-  } catch (error) {
-    console.error('Error en obtenerPorId tratamiento:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
-  }
-};
-
-// ──────────────────────────────────────────────
-// Actualizar tratamiento (actualización parcial)
-// ──────────────────────────────────────────────
-const actualizar = async (req, res) => {
-  try {
     const dto = new ActualizarTratamientoDTO(req.body);
     const errores = dto.validar();
-    if (errores.length) {
-      return res.status(400).json({ ok: false, errores });
-    }
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
-    const tratamiento = await Tratamiento.findByPk(req.params.id);
-    if (!tratamiento) {
-      return res.status(404).json({ ok: false, mensaje: 'Tratamiento no encontrado' });
-    }
-
-    // Filtrar solo los campos definidos para actualización parcial
-    const camposActualizar = {};
-    if (dto.dosis !== undefined) camposActualizar.dosis = dto.dosis;
-    if (dto.fecha_inicio !== undefined) camposActualizar.fecha_inicio = dto.fecha_inicio;
-    if (dto.fecha_fin !== undefined) camposActualizar.fecha_fin = dto.fecha_fin;
-    if (dto.estado !== undefined) camposActualizar.estado = dto.estado;
-
-    await tratamiento.update(camposActualizar);
-
-    return res.status(200).json({
-      ok: true,
-      mensaje: 'Tratamiento actualizado exitosamente',
-      data: new TratamientoResponseDTO(tratamiento)
+    await t.update({
+      dosis:        dto.dosis        ?? t.dosis,
+      fecha_inicio: dto.fecha_inicio ?? t.fecha_inicio,
+      fecha_fin:    dto.fecha_fin    ?? t.fecha_fin,
+      estado:       dto.estado       ?? t.estado
     });
-  } catch (error) {
-    console.error('Error en actualizar tratamiento:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+
+    return ok(res, new TratamientoResponseDTO(t), 'Tratamiento actualizado');
+  } catch (e) {
+    return error(res, 500, 'Error al actualizar tratamiento', e.message);
   }
 };
 
-// ──────────────────────────────────────────────
-// Desactivar tratamiento (soft delete)
-// ──────────────────────────────────────────────
-const desactivar = async (req, res) => {
+exports.desactivar = async (req, res) => {
   try {
-    const tratamiento = await Tratamiento.findByPk(req.params.id);
-    if (!tratamiento) {
-      return res.status(404).json({ ok: false, mensaje: 'Tratamiento no encontrado' });
-    }
-
-    await tratamiento.update({ estado: false });
-
-    return res.status(200).json({
-      ok: true,
-      mensaje: 'Tratamiento desactivado exitosamente'
-    });
-  } catch (error) {
-    console.error('Error en desactivar tratamiento:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    const t = await Tratamiento.findByPk(req.params.id);
+    if (!t) return error(res, 404, 'Tratamiento no encontrado');
+    await t.update({ estado: false });
+    return ok(res, null, 'Tratamiento desactivado');
+  } catch (e) {
+    return error(res, 500, 'Error al desactivar tratamiento', e.message);
   }
-};
-
-module.exports = {
-  crear,
-  obtenerTodos,
-  obtenerPorId,
-  actualizar,
-  desactivar
 };

@@ -16,7 +16,7 @@ exports.listarPorUsuario = async (req, res) => {
 
 exports.crear = async (req, res) => {
   try {
-    const dto = new CrearNotificacionDTO(req.body);
+    const dto = new CrearNotificacionDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 

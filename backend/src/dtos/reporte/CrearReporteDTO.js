@@ -1,5 +1,6 @@
 class CrearReporteDTO {
-  constructor({ id_usuario, fecha_inicio, fecha_fin }) {
+  constructor(data = {}) {
+    const { id_usuario, fecha_inicio, fecha_fin } = data;
     this.id_usuario   = Number(id_usuario);
     this.fecha_inicio = fecha_inicio;
     this.fecha_fin    = fecha_fin;

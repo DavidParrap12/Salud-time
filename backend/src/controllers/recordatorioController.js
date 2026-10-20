@@ -17,7 +17,7 @@ exports.listarPorTratamiento = async (req, res) => {
 
 exports.crear = async (req, res) => {
   try {
-    const dto = new CrearRecordatorioDTO(req.body);
+    const dto = new CrearRecordatorioDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
@@ -44,7 +44,7 @@ exports.actualizar = async (req, res) => {
     const r = await Recordatorio.findByPk(req.params.id);
     if (!r) return error(res, 404, 'Recordatorio no encontrado');
 
-    const dto = new ActualizarRecordatorioDTO(req.body);
+    const dto = new ActualizarRecordatorioDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 

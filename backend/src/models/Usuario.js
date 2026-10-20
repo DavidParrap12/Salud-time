@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../src/config/database');
+const sequelize = require('../config/database');
 
 const Usuario = sequelize.define('USUARIO', {
   id_usuario: {
@@ -26,7 +26,7 @@ const Usuario = sequelize.define('USUARIO', {
     allowNull: false
   },
   edad: {
-    type: DataTypes.TINYINT,
+    type: DataTypes.SMALLINT,
     allowNull: false
   },
   estado: {

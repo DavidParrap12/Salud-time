@@ -25,14 +25,15 @@ exports.obtener = async (req, res) => {
 
 exports.crear = async (req, res) => {
   try {
-    const dto = new CrearMedicamentoDTO(req.body);
+    const dto = new CrearMedicamentoDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
     const med = await Medicamento.create({
-      nombre: dto.nombre,
-      presentacion: dto.presentacion,
-      descripcion: dto.descripcion
+      nombre:            dto.nombre,
+      presentacion:      dto.presentacion,
+      descripcion:       dto.descripcion,
+      fecha_vencimiento: dto.fecha_vencimiento
     });
 
     return created(res, new MedicamentoResponseDTO(med), 'Medicamento registrado');
@@ -46,15 +47,16 @@ exports.actualizar = async (req, res) => {
     const med = await Medicamento.findByPk(req.params.id);
     if (!med) return error(res, 404, 'Medicamento no encontrado');
 
-    const dto = new ActualizarMedicamentoDTO(req.body);
+    const dto = new ActualizarMedicamentoDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
     await med.update({
-      nombre:       dto.nombre       ?? med.nombre,
-      presentacion: dto.presentacion ?? med.presentacion,
-      descripcion:  dto.descripcion  ?? med.descripcion,
-      estado:       dto.estado       ?? med.estado
+      nombre:            dto.nombre            ?? med.nombre,
+      presentacion:      dto.presentacion      ?? med.presentacion,
+      descripcion:       dto.descripcion       ?? med.descripcion,
+      fecha_vencimiento: dto.fecha_vencimiento ?? med.fecha_vencimiento,
+      estado:            dto.estado            ?? med.estado
     });
 
     return ok(res, new MedicamentoResponseDTO(med), 'Medicamento actualizado');
@@ -76,7 +78,7 @@ exports.eliminar = async (req, res) => {
 
 exports.validar = async (req, res) => {
   try {
-    const dto = new CrearMedicamentoDTO(req.body);
+    const dto = new CrearMedicamentoDTO(req.body || {});
     const errores = dto.validar();
     return ok(res, { valido: errores.length === 0, errores });
   } catch (e) {

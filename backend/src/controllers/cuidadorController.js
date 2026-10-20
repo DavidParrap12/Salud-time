@@ -17,7 +17,7 @@ exports.listarPorPaciente = async (req, res) => {
 
 exports.crear = async (req, res) => {
   try {
-    const dto = new CrearCuidadorDTO(req.body);
+    const dto = new CrearCuidadorDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
@@ -66,7 +66,7 @@ exports.actualizar = async (req, res) => {
     const rel = await CuidadorPaciente.findByPk(req.params.id);
     if (!rel) return error(res, 404, 'Relación no encontrada');
 
-    const dto = new ActualizarCuidadorDTO(req.body);
+    const dto = new ActualizarCuidadorDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 

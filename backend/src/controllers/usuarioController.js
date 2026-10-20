@@ -30,12 +30,12 @@ exports.actualizar = async (req, res) => {
     const usuario = await Usuario.findByPk(req.params.id);
     if (!usuario) return error(res, 404, 'Usuario no encontrado');
 
-    const dto = new ActualizarUsuarioDTO(req.body);
+    const dto = new ActualizarUsuarioDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
     await usuario.update({
-      nombre:   dto.nombre_completo ?? usuario.nombre,
+      nombre_completo: dto.nombre_completo ?? usuario.nombre_completo,
       telefono: dto.telefono        ?? usuario.telefono,
       edad:     dto.edad            ?? usuario.edad
     });
@@ -62,7 +62,7 @@ exports.asignarRol = async (req, res) => {
     const usuario = await Usuario.findByPk(req.params.id);
     if (!usuario) return error(res, 404, 'Usuario no encontrado');
 
-    const dto = new AsignarRolDTO(req.body);
+    const dto = new AsignarRolDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 

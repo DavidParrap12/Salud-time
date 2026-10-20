@@ -1,84 +1,53 @@
-const Rol = require('../models/Rol');
-
-// DTOs
-const AsignarRolDTO = require('../dtos/rol/AsignarRolDTO');
+const { Rol, Usuario, UsuarioRol } = require('../models');
+const AsignarRolDTO  = require('../dtos/rol/AsignarRolDTO');
 const RolResponseDTO = require('../dtos/rol/RolResponseDTO');
+const { ok, created, error } = require('../views/response');
 
-// ──────────────────────────────────────────────
-// Obtener todos los roles
-// ──────────────────────────────────────────────
 const obtenerTodos = async (req, res) => {
   try {
     const roles = await Rol.findAll();
-
-    return res.status(200).json({
-      ok: true,
-      data: RolResponseDTO.fromList(roles)
-    });
-  } catch (error) {
-    console.error('Error en obtenerTodos roles:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    return ok(res, RolResponseDTO.fromList(roles));
+  } catch (e) {
+    return error(res, 500, 'Error al listar roles', e.message);
   }
 };
 
-// ──────────────────────────────────────────────
-// Obtener rol por ID
-// ──────────────────────────────────────────────
 const obtenerPorId = async (req, res) => {
   try {
     const rol = await Rol.findByPk(req.params.id);
-    if (!rol) {
-      return res.status(404).json({ ok: false, mensaje: 'Rol no encontrado' });
-    }
-
-    return res.status(200).json({
-      ok: true,
-      data: new RolResponseDTO(rol)
-    });
-  } catch (error) {
-    console.error('Error en obtenerPorId rol:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    if (!rol) return error(res, 404, 'Rol no encontrado');
+    return ok(res, new RolResponseDTO(rol));
+  } catch (e) {
+    return error(res, 500, 'Error al obtener rol', e.message);
   }
 };
 
-// ──────────────────────────────────────────────
-// Asignar rol a usuario
-// TODO: Se necesita crear el modelo 'usuario_rol' (tabla intermedia)
-// para implementar la lógica de asignación completa
-// ──────────────────────────────────────────────
 const asignarRol = async (req, res) => {
   try {
-    const dto = new AsignarRolDTO(req.body);
+    const usuario = await Usuario.findByPk(req.params.id_usuario);
+    if (!usuario) return error(res, 404, 'Usuario no encontrado');
+
+    const dto = new AsignarRolDTO(req.body || {});
     const errores = dto.validar();
-    if (errores.length) {
-      return res.status(400).json({ ok: false, errores });
-    }
+    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
-    // Verificar que el rol existe
     const rol = await Rol.findByPk(dto.id_rol);
-    if (!rol) {
-      return res.status(404).json({ ok: false, mensaje: 'Rol no encontrado' });
-    }
+    if (!rol) return error(res, 404, 'Rol no encontrado');
 
-    // TODO: Implementar la lógica de asignación cuando se cree el modelo usuario_rol
-    // Ejemplo esperado:
-    // await UsuarioRol.create({
-    //   id_usuario: req.params.id_usuario,
-    //   id_rol: dto.id_rol,
-    //   id_especializacion: dto.id_especializacion
-    // });
-
-    return res.status(200).json({
-      ok: true,
-      mensaje: 'Validación exitosa. TODO: Implementar asignación cuando exista el modelo usuario_rol',
-      data: {
-        id_rol: dto.id_rol,
-        id_especializacion: dto.id_especializacion
-      }
+    const yaTiene = await UsuarioRol.findOne({
+      where: { id_usuario: usuario.id_usuario, id_rol: rol.id_rol }
     });
-  } catch (error) {
-    console.error('Error en asignarRol:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    if (yaTiene) return error(res, 409, 'El usuario ya tiene ese rol');
+
+    const asignacion = await UsuarioRol.create({
+      id_usuario: usuario.id_usuario,
+      id_rol: rol.id_rol,
+      id_especializacion: dto.id_especializacion
+    });
+
+    return created(res, asignacion, 'Rol asignado');
+  } catch (e) {
+    return error(res, 500, 'Error al asignar rol', e.message);
   }
 };
 

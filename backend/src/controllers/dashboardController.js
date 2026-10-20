@@ -1,8 +1,8 @@
 const { Tratamiento, Recordatorio, DosisProgramada, Usuario } = require('../models');
-const DashboardResponseDTO = require('../dtos/dashboard/DashboardResponseDTO');
-const UsuarioResponseDTO   = require('../dtos/usuario/UsuarioResponseDTO');
-const { ok, error }        = require('../views/response');
-const { Op } = require('sequelize');
+const DashboardResponseDTO       = require('../dtos/dashboard/DashboardResponseDTO');
+const UsuarioResponseDTO         = require('../dtos/usuario/UsuarioResponseDTO');
+const DosisProgramadaResponseDTO = require('../dtos/dosis/DosisProgramadaResponseDTO');
+const { ok, error }              = require('../views/response');
 
 exports.obtener = async (req, res) => {
   try {
@@ -21,9 +21,10 @@ exports.obtener = async (req, res) => {
 
     const dosisHoy = [];
     for (const t of tratamientos) {
-      for (const r of t.recordatorios) {
-        for (const d of r.dosis) {
-          if (d.fecha_hora >= inicio && d.fecha_hora <= fin) dosisHoy.push(d);
+      for (const r of (t.recordatorios || [])) {
+        for (const d of (r.dosis || [])) {
+          const f = new Date(d.fecha_hora);
+          if (f >= inicio && f <= fin) dosisHoy.push(d);
         }
       }
     }
@@ -37,8 +38,8 @@ exports.obtener = async (req, res) => {
 
     return ok(res, new DashboardResponseDTO({
       usuario: new UsuarioResponseDTO(usuario),
-      medicamentosHoy: dosisHoy,
-      dosisPendientes: dosisHoy.filter(d => d.estado === 'PENDIENTE'),
+      medicamentosHoy: DosisProgramadaResponseDTO.fromList(dosisHoy),
+      dosisPendientes: DosisProgramadaResponseDTO.fromList(dosisHoy.filter(d => d.estado === 'PENDIENTE')),
       resumen
     }));
   } catch (e) {
@@ -60,13 +61,14 @@ exports.medicamentosHoy = async (req, res) => {
 
     const resultado = [];
     for (const t of tratamientos) {
-      for (const r of t.recordatorios) {
-        for (const d of r.dosis) {
-          if (d.fecha_hora >= inicio && d.fecha_hora <= fin) resultado.push(d);
+      for (const r of (t.recordatorios || [])) {
+        for (const d of (r.dosis || [])) {
+          const f = new Date(d.fecha_hora);
+          if (f >= inicio && f <= fin) resultado.push(d);
         }
       }
     }
-    return ok(res, resultado);
+    return ok(res, DosisProgramadaResponseDTO.fromList(resultado));
   } catch (e) {
     return error(res, 500, 'Error al obtener medicamentos del día', e.message);
   }
@@ -75,8 +77,23 @@ exports.medicamentosHoy = async (req, res) => {
 exports.dosisPendientes = async (req, res) => {
   try {
     const idUsuario = req.params.id_usuario;
-    const dosis = await DosisProgramada.findAll({ where: { estado: 'PENDIENTE' } });
-    return ok(res, dosis);
+    const includeTratamiento = idUsuario ? [{
+      model: Recordatorio,
+      as: 'recordatorio',
+      required: true,
+      include: [{
+        model: Tratamiento,
+        as: 'tratamiento',
+        where: { id_paciente: idUsuario, estado: true },
+        required: true
+      }]
+    }] : [];
+
+    const dosis = await DosisProgramada.findAll({
+      where: { estado: 'PENDIENTE' },
+      include: includeTratamiento
+    });
+    return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
   } catch (e) {
     return error(res, 500, 'Error al obtener dosis pendientes', e.message);
   }

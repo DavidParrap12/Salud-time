@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { Usuario, Rol, UsuarioRol, Especializacion } = require('../models');
+const { Usuario, Rol, UsuarioRol, Especializacion, MedicoEspecializacion } = require('../models');
 const RegistroPacienteDTO     = require('../dtos/auth/RegistroPacienteDTO');
 const RegistroEspecialistaDTO = require('../dtos/auth/RegistroEspecialistaDTO');
 const LoginDTO                = require('../dtos/auth/LoginDTO');
@@ -10,7 +10,7 @@ const { created, ok, error }  = require('../views/response');
 
 exports.registrarPaciente = async (req, res) => {
   try {
-    const dto = new RegistroPacienteDTO(req.body);
+    const dto = new RegistroPacienteDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
@@ -19,9 +19,9 @@ exports.registrarPaciente = async (req, res) => {
 
     const hash = await bcrypt.hash(dto.contrasena, 10);
     const usuario = await Usuario.create({
-      nombre: dto.nombre_completo,
+      nombre_completo: dto.nombre_completo,
       correo: dto.correo,
-      contrasena: hash,
+      contrasena_hash: hash,
       edad: dto.edad,
       telefono: dto.telefono,
       estado: true,
@@ -44,7 +44,7 @@ exports.registrarPaciente = async (req, res) => {
 
 exports.registrarEspecialista = async (req, res) => {
   try {
-    const dto = new RegistroEspecialistaDTO(req.body);
+    const dto = new RegistroEspecialistaDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
@@ -56,9 +56,9 @@ exports.registrarEspecialista = async (req, res) => {
 
     const hash = await bcrypt.hash(dto.contrasena, 10);
     const usuario = await Usuario.create({
-      nombre: dto.nombre_completo,
+      nombre_completo: dto.nombre_completo,
       correo: dto.correo,
-      contrasena: hash,
+      contrasena_hash: hash,
       edad: dto.edad,
       telefono: dto.telefono,
       estado: true,
@@ -73,7 +73,10 @@ exports.registrarEspecialista = async (req, res) => {
       });
     }
 
-    await usuario.addEspecializacion(esp);
+    await MedicoEspecializacion.create({
+      id_usuario: usuario.id_usuario,
+      id_especializacion: esp.id_especializacion
+    });
 
     return created(res, new UsuarioResponseDTO(usuario), 'Especialista registrado');
   } catch (e) {
@@ -83,7 +86,7 @@ exports.registrarEspecialista = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const dto = new LoginDTO(req.body);
+    const dto = new LoginDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
@@ -94,7 +97,7 @@ exports.login = async (req, res) => {
     if (!usuario) return error(res, 401, 'Credenciales incorrectas');
     if (!usuario.estado) return error(res, 401, 'Cuenta desactivada');
 
-    const valida = await bcrypt.compare(dto.contrasena, usuario.contrasena);
+    const valida = await bcrypt.compare(dto.contrasena, usuario.contrasena_hash);
     if (!valida) return error(res, 401, 'Credenciales incorrectas');
 
     const roles = usuario.roles.map(r => r.nombre);
@@ -116,7 +119,7 @@ exports.login = async (req, res) => {
 
 exports.recuperarPassword = async (req, res) => {
   try {
-    const dto = new RecuperarPasswordDTO(req.body);
+    const dto = new RecuperarPasswordDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 

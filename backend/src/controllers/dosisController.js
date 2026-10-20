@@ -1,4 +1,4 @@
-const { DosisProgramada, RegistroDosis, Notificacion, CuidadorPaciente } = require('../models');
+const { DosisProgramada, RegistroDosis, Notificacion, CuidadorPaciente, Recordatorio, Tratamiento } = require('../models');
 const DosisProgramadaResponseDTO = require('../dtos/dosis/DosisProgramadaResponseDTO');
 const ConfirmarDosisDTO          = require('../dtos/dosis/ConfirmarDosisDTO');
 const OmitirDosisDTO             = require('../dtos/dosis/OmitirDosisDTO');
@@ -6,7 +6,23 @@ const { ok, created, error }     = require('../views/response');
 
 exports.listarPendientes = async (req, res) => {
   try {
-    const dosis = await DosisProgramada.findAll({ where: { estado: 'PENDIENTE' } });
+    const idPaciente = req.query.id_paciente || req.params.id_paciente;
+    const includeOpts = idPaciente ? [{
+      model: Recordatorio,
+      as: 'recordatorio',
+      required: true,
+      include: [{
+        model: Tratamiento,
+        as: 'tratamiento',
+        where: { id_paciente: idPaciente },
+        required: true
+      }]
+    }] : [];
+
+    const dosis = await DosisProgramada.findAll({
+      where: { estado: 'PENDIENTE' },
+      include: includeOpts
+    });
     return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
   } catch (e) {
     return error(res, 500, 'Error al listar dosis pendientes', e.message);
@@ -19,7 +35,7 @@ exports.confirmar = async (req, res) => {
     if (!dosis) return error(res, 404, 'Dosis no encontrada');
     if (dosis.estado !== 'PENDIENTE') return error(res, 400, 'La dosis ya fue registrada');
 
-    const dto = new ConfirmarDosisDTO(req.body);
+    const dto = new ConfirmarDosisDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
@@ -38,11 +54,17 @@ exports.confirmar = async (req, res) => {
 
 exports.omitir = async (req, res) => {
   try {
-    const dosis = await DosisProgramada.findByPk(req.params.id);
+    const dosis = await DosisProgramada.findByPk(req.params.id, {
+      include: [{
+        model: Recordatorio,
+        as: 'recordatorio',
+        include: [{ model: Tratamiento, as: 'tratamiento' }]
+      }]
+    });
     if (!dosis) return error(res, 404, 'Dosis no encontrada');
     if (dosis.estado !== 'PENDIENTE') return error(res, 400, 'La dosis ya fue registrada');
 
-    const dto = new OmitirDosisDTO(req.body);
+    const dto = new OmitirDosisDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
@@ -54,10 +76,11 @@ exports.omitir = async (req, res) => {
       observaciones: dto.motivo
     });
 
-    // Notificar a los cuidadores (RF41)
-    if (req.body.id_paciente) {
+    // Notificar a los cuidadores del paciente dueño del tratamiento.
+    const idPaciente = dosis.recordatorio?.tratamiento?.id_paciente;
+    if (idPaciente) {
       const relaciones = await CuidadorPaciente.findAll({
-        where: { id_paciente: req.body.id_paciente, estado: true }
+        where: { id_paciente: idPaciente, estado: true }
       });
       for (const rel of relaciones) {
         await Notificacion.create({

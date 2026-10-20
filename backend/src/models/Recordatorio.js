@@ -7,7 +7,7 @@ const Recordatorio = sequelize.define('RECORDATORIO', {
     primaryKey: true,
     autoIncrement: true
   },
-  id_medicamento: {
+  id_tratamiento: {
     type: DataTypes.INTEGER,
     allowNull: false
   },

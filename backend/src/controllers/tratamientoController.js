@@ -27,7 +27,7 @@ exports.obtener = async (req, res) => {
 
 exports.crear = async (req, res) => {
   try {
-    const dto = new CrearTratamientoDTO(req.body);
+    const dto = new CrearTratamientoDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
@@ -58,7 +58,7 @@ exports.actualizar = async (req, res) => {
     const t = await Tratamiento.findByPk(req.params.id);
     if (!t) return error(res, 404, 'Tratamiento no encontrado');
 
-    const dto = new ActualizarTratamientoDTO(req.body);
+    const dto = new ActualizarTratamientoDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 

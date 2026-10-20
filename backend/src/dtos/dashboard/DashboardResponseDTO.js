@@ -1,5 +1,6 @@
 class DashboardResponseDTO {
-  constructor({ usuario, medicamentosHoy, dosisPendientes, resumen }) {
+  constructor(data = {}) {
+    const { usuario, medicamentosHoy, dosisPendientes, resumen } = data;
     this.usuario           = usuario;
     this.medicamentosHoy   = medicamentosHoy;
     this.dosisPendientes   = dosisPendientes;

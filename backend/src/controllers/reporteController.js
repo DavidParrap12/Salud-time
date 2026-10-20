@@ -4,9 +4,18 @@ const ReporteResponseDTO  = require('../dtos/reporte/ReporteResponseDTO');
 const { ok, created, error } = require('../views/response');
 const { Op } = require('sequelize');
 
+const aFechaLocal = (valor, finDelDia = false) => {
+  const m = String(valor).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return new Date(valor);
+  return new Date(
+    Number(m[1]), Number(m[2]) - 1, Number(m[3]),
+    finDelDia ? 23 : 0, finDelDia ? 59 : 0, finDelDia ? 59 : 0
+  );
+};
+
 exports.generar = async (req, res) => {
   try {
-    const dto = new CrearReporteDTO(req.body);
+    const dto = new CrearReporteDTO(req.body || {});
     const errores = dto.validar();
     if (errores.length) return error(res, 400, 'Datos inválidos', errores);
 
@@ -19,7 +28,7 @@ exports.generar = async (req, res) => {
         model: Recordatorio, as: 'recordatorios',
         include: [{
           model: DosisProgramada, as: 'dosis',
-          where: { fecha_hora: { [Op.between]: [dto.fecha_inicio, dto.fecha_fin] } },
+          where: { fecha_hora: { [Op.between]: [aFechaLocal(dto.fecha_inicio), aFechaLocal(dto.fecha_fin, true)] } },
           required: false
         }]
       }]
@@ -27,8 +36,8 @@ exports.generar = async (req, res) => {
 
     let total = 0, tomadas = 0, omitidas = 0;
     for (const t of tratamientos)
-      for (const r of t.recordatorios)
-        for (const d of r.dosis) {
+      for (const r of (t.recordatorios || []))
+        for (const d of (r.dosis || [])) {
           total++;
           if (d.estado === 'TOMADA') tomadas++;
           if (d.estado === 'OMITIDA') omitidas++;

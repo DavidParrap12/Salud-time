@@ -1,4 +1,4 @@
-const {dataTypes} = require('sequelize');
+const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const Rol = sequelize.define('ROL', {
@@ -7,10 +7,14 @@ const Rol = sequelize.define('ROL', {
     primaryKey: true,
     autoIncrement: true
   },
-  nombre_rol: {
+  nombre: {
     type: DataTypes.STRING(100),
     allowNull: false,
     unique: true
+  },
+  descripcion: {
+    type: DataTypes.STRING(255),
+    allowNull: true
   }
 }, {
   tableName: 'ROL'

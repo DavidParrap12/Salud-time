@@ -1,108 +1,118 @@
+const { Router } = require('express');
+const asyncHandler = require('../middlewares/asyncHandler');
+const validarId = require('../middlewares/validarId');
 const { Recordatorio, Tratamiento } = require('../models');
-const CrearRecordatorioDTO      = require('../dtos/recordatorio/CrearRecordatorioDTO');
+const CrearRecordatorioDTO = require('../dtos/recordatorio/CrearRecordatorioDTO');
 const ActualizarRecordatorioDTO = require('../dtos/recordatorio/ActualizarRecordatorioDTO');
-const RecordatorioResponseDTO   = require('../dtos/recordatorio/RecordatorioResponseDTO');
-const { ok, created, error }    = require('../views/response');
+const CambiarHoraDTO = require('../dtos/recordatorio/CambiarHoraDTO');
+const CambiarDiasDTO = require('../dtos/recordatorio/CambiarDiasDTO');
+const RecordatorioResponseDTO = require('../dtos/recordatorio/RecordatorioResponseDTO');
+const { ok, created } = require('../views/response');
+const { BusinessError, NotFoundError } = require('../errors/AppError');
 
-exports.listarPorTratamiento = async (req, res) => {
-  try {
-    const lista = await Recordatorio.findAll({
-      where: { id_tratamiento: req.params.id_tratamiento }
-    });
-    return ok(res, RecordatorioResponseDTO.fromList(lista));
-  } catch (e) {
-    return error(res, 500, 'Error al listar recordatorios', e.message);
-  }
+const router = Router();
+const r = (handler) => asyncHandler(handler);
+
+// ==========================================
+// Orquestación y validación HTTP
+// ==========================================
+
+const listarPorTratamiento = async (req, res) => {
+  const lista = await Recordatorio.findAll({
+    where: { id_tratamiento: req.params.id_tratamiento }
+  });
+  return ok(res, RecordatorioResponseDTO.fromList(lista));
 };
 
-exports.crear = async (req, res) => {
-  try {
-    const dto = new CrearRecordatorioDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+const crear = async (req, res) => {
+  // DTO de entrada: verifica formato JSON
+  const dto = CrearRecordatorioDTO.from(req.body);
 
-    const t = await Tratamiento.findByPk(dto.id_tratamiento);
-    if (!t) return error(res, 404, 'Tratamiento no encontrado');
+  const tratamiento = await Tratamiento.findByPk(dto.id_tratamiento);
+  if (!tratamiento) throw new NotFoundError('Tratamiento no encontrado');
 
-    const r = await Recordatorio.create({
-      id_tratamiento: dto.id_tratamiento,
-      hora:           dto.hora,
-      dias_semana:    dto.dias_semana,
-      fecha_inicio:   dto.fecha_inicio,
-      fecha_fin:      dto.fecha_fin,
-      estado:         true
-    });
+  const recordatorio = await Recordatorio.create({
+    id_tratamiento: dto.id_tratamiento,
+    hora: dto.hora,
+    dias_semana: dto.dias_semana,
+    fecha_inicio: dto.fecha_inicio,
+    fecha_fin: dto.fecha_fin,
+    estado: true
+  });
 
-    return created(res, new RecordatorioResponseDTO(r), 'Recordatorio creado');
-  } catch (e) {
-    return error(res, 500, 'Error al crear recordatorio', e.message);
-  }
+  // DTO de salida: verifica y da formato al JSON
+  return created(res, new RecordatorioResponseDTO(recordatorio), 'Recordatorio creado');
 };
 
-exports.actualizar = async (req, res) => {
-  try {
-    const r = await Recordatorio.findByPk(req.params.id);
-    if (!r) return error(res, 404, 'Recordatorio no encontrado');
+const actualizar = async (req, res) => {
+  const recordatorio = await Recordatorio.findByPk(req.params.id);
+  if (!recordatorio) throw new NotFoundError('Recordatorio no encontrado');
 
-    const dto = new ActualizarRecordatorioDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+  // DTO de entrada: verifica formato JSON
+  const dto = ActualizarRecordatorioDTO.from(req.body);
 
-    await r.update({
-      hora:         dto.hora         ?? r.hora,
-      dias_semana:  dto.dias_semana  ?? r.dias_semana,
-      fecha_inicio: dto.fecha_inicio ?? r.fecha_inicio,
-      fecha_fin:    dto.fecha_fin    ?? r.fecha_fin,
-      estado:       dto.estado       ?? r.estado
-    });
+  await recordatorio.update({
+    hora: dto.hora ?? recordatorio.hora,
+    dias_semana: dto.dias_semana ?? recordatorio.dias_semana,
+    fecha_inicio: dto.fecha_inicio ?? recordatorio.fecha_inicio,
+    fecha_fin: dto.fecha_fin ?? recordatorio.fecha_fin,
+    estado: dto.estado ?? recordatorio.estado
+  });
 
-    return ok(res, new RecordatorioResponseDTO(r), 'Recordatorio actualizado');
-  } catch (e) {
-    return error(res, 500, 'Error al actualizar recordatorio', e.message);
-  }
+  // DTO de salida: verifica JSON
+  return ok(res, new RecordatorioResponseDTO(recordatorio), 'Recordatorio actualizado');
 };
 
-exports.eliminar = async (req, res) => {
-  try {
-    const r = await Recordatorio.findByPk(req.params.id);
-    if (!r) return error(res, 404, 'Recordatorio no encontrado');
-    await r.update({ estado: false });
-    return ok(res, null, 'Recordatorio desactivado');
-  } catch (e) {
-    return error(res, 500, 'Error al eliminar recordatorio', e.message);
-  }
+const eliminar = async (req, res) => {
+  const recordatorio = await Recordatorio.findByPk(req.params.id);
+  if (!recordatorio) throw new NotFoundError('Recordatorio no encontrado');
+
+  await recordatorio.update({ estado: false });
+  return ok(res, null, 'Recordatorio desactivado');
 };
 
-exports.cambiarHora = async (req, res) => {
-  try {
-    const r = await Recordatorio.findByPk(req.params.id);
-    if (!r) return error(res, 404, 'Recordatorio no encontrado');
-    if (!req.body.hora) return error(res, 400, 'La hora es obligatoria');
-    await r.update({ hora: req.body.hora });
-    return ok(res, new RecordatorioResponseDTO(r), 'Hora actualizada');
-  } catch (e) {
-    return error(res, 500, 'Error al actualizar hora', e.message);
-  }
+const cambiarHora = async (req, res) => {
+  const recordatorio = await Recordatorio.findByPk(req.params.id);
+  if (!recordatorio) throw new NotFoundError('Recordatorio no encontrado');
+
+  // DTO de entrada: verifica formato JSON
+  const dto = CambiarHoraDTO.from(req.body);
+
+  await recordatorio.update({ hora: dto.hora });
+  return ok(res, new RecordatorioResponseDTO(recordatorio), 'Hora actualizada');
 };
 
-exports.cambiarDias = async (req, res) => {
-  try {
-    const r = await Recordatorio.findByPk(req.params.id);
-    if (!r) return error(res, 404, 'Recordatorio no encontrado');
-    if (!req.body.dias_semana) return error(res, 400, 'Los días son obligatorios');
-    await r.update({ dias_semana: req.body.dias_semana });
-    return ok(res, new RecordatorioResponseDTO(r), 'Días actualizados');
-  } catch (e) {
-    return error(res, 500, 'Error al actualizar días', e.message);
-  }
+const cambiarDias = async (req, res) => {
+  const recordatorio = await Recordatorio.findByPk(req.params.id);
+  if (!recordatorio) throw new NotFoundError('Recordatorio no encontrado');
+
+  // DTO de entrada: verifica formato JSON
+  const dto = CambiarDiasDTO.from(req.body);
+
+  await recordatorio.update({ dias_semana: dto.dias_semana });
+  return ok(res, new RecordatorioResponseDTO(recordatorio), 'Días actualizados');
 };
 
-exports.cambiarMedicamento = async (req, res) => {
-  try {
-    // En el modelo nuevo, el medicamento ya no se cambia directamente aquí:
-    // el recordatorio depende del tratamiento.
-    return error(res, 400, 'Para cambiar el medicamento, actualice el tratamiento asociado');
-  } catch (e) {
-    return error(res, 500, 'Error al actualizar medicamento', e.message);
-  }
+const cambiarMedicamento = async () => {
+  throw new BusinessError('Para cambiar el medicamento, actualice el tratamiento asociado');
 };
+
+// ==========================================
+// Endpoints definidos en el Controller
+// ==========================================
+router.get('/tratamiento/:id_tratamiento', validarId('id_tratamiento'), r(listarPorTratamiento));
+router.post('/', r(crear));
+router.put('/:id', validarId(), r(actualizar));
+router.delete('/:id', validarId(), r(eliminar));
+router.patch('/:id/hora', validarId(), r(cambiarHora));
+router.patch('/:id/dias', validarId(), r(cambiarDias));
+router.patch('/:id/medicamento', validarId(), r(cambiarMedicamento));
+
+module.exports = router;
+module.exports.listarPorTratamiento = listarPorTratamiento;
+module.exports.crear = crear;
+module.exports.actualizar = actualizar;
+module.exports.eliminar = eliminar;
+module.exports.cambiarHora = cambiarHora;
+module.exports.cambiarDias = cambiarDias;
+module.exports.cambiarMedicamento = cambiarMedicamento;

@@ -1,18 +1,16 @@
-class UsuarioResponseDTO {
-  constructor(usuario) {
-    this.id_usuario        = usuario.id_usuario;
-    this.nombre_completo   = usuario.nombre_completo;
-    this.correo            = usuario.correo;
-    this.edad              = usuario.edad;
-    this.telefono          = usuario.telefono;
-    this.estado            = usuario.estado;
-    this.correo_verificado = usuario.correo_verificado;
-    this.fecha_registro    = usuario.fecha_registro;
-  }
+const BaseResponseDTO = require('../BaseResponseDTO');
 
-  static fromList(usuarios) {
-    return usuarios.map(u => new UsuarioResponseDTO(u));
-  }
+class UsuarioResponseDTO extends BaseResponseDTO {
+  static fields = [
+    'id_usuario',
+    'nombre_completo',
+    'correo',
+    'edad',
+    'telefono',
+    'estado',
+    'correo_verificado',
+    'fecha_registro'
+  ];
 }
 
 module.exports = UsuarioResponseDTO;

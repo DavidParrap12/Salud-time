@@ -1,14 +1,14 @@
-class OmitirDosisDTO {
+const BaseDTO = require('../BaseDTO');
+const { omitirDosisCondiciones } = require('../../validaciones');
+
+class OmitirDosisDTO extends BaseDTO {
   constructor(data = {}) {
-    const { motivo } = data;
-    this.motivo = motivo?.trim() || null;
+    super();
+    this.motivo = BaseDTO.texto(data.motivo) || null;
   }
 
-  validar() {
-    const errores = [];
-    if (this.motivo && this.motivo.length > 255)
-      errores.push('El motivo no puede superar 255 caracteres');
-    return errores;
+  static rules() {
+    return omitirDosisCondiciones;
   }
 }
 

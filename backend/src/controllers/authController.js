@@ -1,24 +1,36 @@
+const { Router } = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const asyncHandler = require('../middlewares/asyncHandler');
 const { Usuario, Rol, UsuarioRol, Especializacion, MedicoEspecializacion } = require('../models');
-const RegistroPacienteDTO     = require('../dtos/auth/RegistroPacienteDTO');
+const RegistroPacienteDTO = require('../dtos/auth/RegistroPacienteDTO');
 const RegistroEspecialistaDTO = require('../dtos/auth/RegistroEspecialistaDTO');
-const LoginDTO                = require('../dtos/auth/LoginDTO');
-const RecuperarPasswordDTO    = require('../dtos/auth/RecuperarPasswordDTO');
-const UsuarioResponseDTO      = require('../dtos/usuario/UsuarioResponseDTO');
-const { created, ok, error }  = require('../views/response');
+const LoginDTO = require('../dtos/auth/LoginDTO');
+const RecuperarPasswordDTO = require('../dtos/auth/RecuperarPasswordDTO');
+const LoginResponseDTO = require('../dtos/auth/LoginResponseDTO');
+const UsuarioResponseDTO = require('../dtos/usuario/UsuarioResponseDTO');
+const { created, ok } = require('../views/response');
+const { ConflictError, NotFoundError, UnauthorizedError } = require('../errors/AppError');
+const enTransaccion = require('../utils/transaccion');
 
-exports.registrarPaciente = async (req, res) => {
-  try {
-    const dto = new RegistroPacienteDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+const router = Router();
+const r = (handler) => asyncHandler(handler);
 
-    const existe = await Usuario.findOne({ where: { correo: dto.correo } });
-    if (existe) return error(res, 409, 'El correo ya está registrado');
+// ==========================================
+// Orquestadores de peticiones HTTP
+// ==========================================
 
-    const hash = await bcrypt.hash(dto.contrasena, 10);
-    const usuario = await Usuario.create({
+const registrarPaciente = async (req, res) => {
+  // DTO de entrada: verifica formato JSON
+  const dto = RegistroPacienteDTO.from(req.body);
+
+  const existe = await Usuario.findOne({ where: { correo: dto.correo } });
+  if (existe) throw new ConflictError('El correo ya está registrado');
+
+  const hash = await bcrypt.hash(dto.contrasena, 10);
+
+  const usuario = await enTransaccion(async (transaction) => {
+    const creado = await Usuario.create({
       nombre_completo: dto.nombre_completo,
       correo: dto.correo,
       contrasena_hash: hash,
@@ -26,36 +38,37 @@ exports.registrarPaciente = async (req, res) => {
       telefono: dto.telefono,
       estado: true,
       correo_verificado: false
-    });
+    }, { transaction });
 
-    const rolPaciente = await Rol.findOne({ where: { nombre: 'PACIENTE' } });
+    const rolPaciente = await Rol.findOne({ where: { nombre: 'PACIENTE' }, transaction });
     if (rolPaciente) {
       await UsuarioRol.create({
-        id_usuario: usuario.id_usuario,
+        id_usuario: creado.id_usuario,
         id_rol: rolPaciente.id_rol
-      });
+      }, { transaction });
     }
 
-    return created(res, new UsuarioResponseDTO(usuario), 'Paciente registrado');
-  } catch (e) {
-    return error(res, 500, 'Error al registrar paciente', e.message);
-  }
+    return creado;
+  });
+
+  // DTO de salida: verifica y limpia JSON de salida
+  return created(res, new UsuarioResponseDTO(usuario), 'Paciente registrado');
 };
 
-exports.registrarEspecialista = async (req, res) => {
-  try {
-    const dto = new RegistroEspecialistaDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+const registrarEspecialista = async (req, res) => {
+  // DTO de entrada: verifica formato JSON
+  const dto = RegistroEspecialistaDTO.from(req.body);
 
-    const existe = await Usuario.findOne({ where: { correo: dto.correo } });
-    if (existe) return error(res, 409, 'El correo ya está registrado');
+  const existe = await Usuario.findOne({ where: { correo: dto.correo } });
+  if (existe) throw new ConflictError('El correo ya está registrado');
 
-    const esp = await Especializacion.findByPk(dto.id_especializacion);
-    if (!esp) return error(res, 404, 'Especialización no encontrada');
+  const especializacion = await Especializacion.findByPk(dto.id_especializacion);
+  if (!especializacion) throw new NotFoundError('Especialización no encontrada');
 
-    const hash = await bcrypt.hash(dto.contrasena, 10);
-    const usuario = await Usuario.create({
+  const hash = await bcrypt.hash(dto.contrasena, 10);
+
+  const usuario = await enTransaccion(async (transaction) => {
+    const creado = await Usuario.create({
       nombre_completo: dto.nombre_completo,
       correo: dto.correo,
       contrasena_hash: hash,
@@ -63,72 +76,82 @@ exports.registrarEspecialista = async (req, res) => {
       telefono: dto.telefono,
       estado: true,
       correo_verificado: false
-    });
+    }, { transaction });
 
-    const rolMedico = await Rol.findOne({ where: { nombre: 'MEDICO' } });
+    const rolMedico = await Rol.findOne({ where: { nombre: 'MEDICO' }, transaction });
     if (rolMedico) {
       await UsuarioRol.create({
-        id_usuario: usuario.id_usuario,
+        id_usuario: creado.id_usuario,
         id_rol: rolMedico.id_rol
-      });
+      }, { transaction });
     }
 
     await MedicoEspecializacion.create({
-      id_usuario: usuario.id_usuario,
-      id_especializacion: esp.id_especializacion
-    });
+      id_usuario: creado.id_usuario,
+      id_especializacion: especializacion.id_especializacion
+    }, { transaction });
 
-    return created(res, new UsuarioResponseDTO(usuario), 'Especialista registrado');
-  } catch (e) {
-    return error(res, 500, 'Error al registrar especialista', e.message);
-  }
+    return creado;
+  });
+
+  // DTO de salida: verifica y limpia JSON de salida
+  return created(res, new UsuarioResponseDTO(usuario), 'Especialista registrado');
 };
 
-exports.login = async (req, res) => {
-  try {
-    const dto = new LoginDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+const login = async (req, res) => {
+  // DTO de entrada: verifica formato JSON
+  const dto = LoginDTO.from(req.body);
 
-    const usuario = await Usuario.findOne({
-      where: { correo: dto.correo },
-      include: [{ model: Rol, as: 'roles' }]
-    });
-    if (!usuario) return error(res, 401, 'Credenciales incorrectas');
-    if (!usuario.estado) return error(res, 401, 'Cuenta desactivada');
+  const usuario = await Usuario.findOne({
+    where: { correo: dto.correo },
+    include: [{ model: Rol, as: 'roles' }]
+  });
 
-    const valida = await bcrypt.compare(dto.contrasena, usuario.contrasena_hash);
-    if (!valida) return error(res, 401, 'Credenciales incorrectas');
+  if (!usuario) throw new UnauthorizedError('Credenciales incorrectas');
+  if (!usuario.estado) throw new UnauthorizedError('Cuenta desactivada');
 
-    const roles = usuario.roles.map(r => r.nombre);
-    const token = jwt.sign(
-      { id_usuario: usuario.id_usuario, correo: usuario.correo, roles },
-      process.env.JWT_SECRET,
-      { expiresIn: '8h' }
-    );
+  const valida = await bcrypt.compare(dto.contrasena, usuario.contrasena_hash);
+  if (!valida) throw new UnauthorizedError('Credenciales incorrectas');
 
-    return ok(res, {
+  const roles = usuario.roles.map((rol) => rol.nombre);
+  const token = jwt.sign(
+    { id_usuario: usuario.id_usuario, correo: usuario.correo, roles },
+    process.env.JWT_SECRET,
+    { expiresIn: '8h' }
+  );
+
+  // DTO de salida: verifica y estructura JSON de salida
+  return ok(
+    res,
+    new LoginResponseDTO({
       token,
       usuario: new UsuarioResponseDTO(usuario),
       roles
-    }, 'Inicio de sesión exitoso');
-  } catch (e) {
-    return error(res, 500, 'Error al iniciar sesión', e.message);
-  }
+    }),
+    'Inicio de sesión exitoso'
+  );
 };
 
-exports.recuperarPassword = async (req, res) => {
-  try {
-    const dto = new RecuperarPasswordDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+const recuperarPassword = async (req, res) => {
+  // DTO de entrada: verifica formato JSON
+  const dto = RecuperarPasswordDTO.from(req.body);
 
-    const usuario = await Usuario.findOne({ where: { correo: dto.correo } });
-    if (!usuario) return error(res, 404, 'Correo no registrado');
+  const usuario = await Usuario.findOne({ where: { correo: dto.correo } });
+  if (!usuario) throw new NotFoundError('Correo no registrado');
 
-    // Aquí se generaría un token temporal y se enviaría por correo.
-    return ok(res, null, 'Se envió un enlace de recuperación al correo');
-  } catch (e) {
-    return error(res, 500, 'Error al recuperar contraseña', e.message);
-  }
+  return ok(res, null, 'Se envió un enlace de recuperación al correo');
 };
+
+// ==========================================
+// Endpoints definidos en el Controller
+// ==========================================
+router.post('/registro/paciente', r(registrarPaciente));
+router.post('/registro/especialista', r(registrarEspecialista));
+router.post('/login', r(login));
+router.post('/recuperar-password', r(recuperarPassword));
+
+module.exports = router;
+module.exports.registrarPaciente = registrarPaciente;
+module.exports.registrarEspecialista = registrarEspecialista;
+module.exports.login = login;
+module.exports.recuperarPassword = recuperarPassword;

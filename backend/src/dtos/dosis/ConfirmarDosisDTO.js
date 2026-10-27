@@ -1,11 +1,14 @@
-class ConfirmarDosisDTO {
+const BaseDTO = require('../BaseDTO');
+const { confirmarDosisCondiciones } = require('../../validaciones');
+
+class ConfirmarDosisDTO extends BaseDTO {
   constructor(data = {}) {
-    const { observaciones } = data;
-    this.observaciones = observaciones?.trim() || null;
+    super();
+    this.observaciones = BaseDTO.texto(data.observaciones) || null;
   }
 
-  validar() {
-    return [];
+  static rules() {
+    return confirmarDosisCondiciones;
   }
 }
 

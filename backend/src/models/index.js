@@ -12,6 +12,7 @@ const Recordatorio        = require('./Recordatorio');
 const DosisProgramada     = require('./DosisProgramada');
 const RegistroDosis       = require('./RegistroDosis');
 const Notificacion        = require('./Notificacion');
+const Reporte             = require('./Reporte');
 
 // USUARIO ↔ ROL
 Usuario.belongsToMany(Rol, { through: UsuarioRol, foreignKey: 'id_usuario', otherKey: 'id_rol', as: 'roles' });
@@ -64,9 +65,13 @@ Notificacion.belongsTo(DosisProgramada, { foreignKey: 'id_dosis_programada', as:
 Usuario.hasMany(Notificacion, { foreignKey: 'id_usuario_destinatario', as: 'notificaciones' });
 Notificacion.belongsTo(Usuario, { foreignKey: 'id_usuario_destinatario', as: 'destinatario' });
 
+// USUARIO ↔ REPORTE
+Usuario.hasMany(Reporte, { foreignKey: 'id_usuario', as: 'reportes' });
+Reporte.belongsTo(Usuario, { foreignKey: 'id_usuario', as: 'usuario' });
+
 module.exports = {
   sequelize,
   Usuario, Rol, Especializacion, UsuarioRol, MedicoEspecializacion,
   Medicamento, Tratamiento, CuidadorPaciente,
-  Recordatorio, DosisProgramada, RegistroDosis, Notificacion
+  Recordatorio, DosisProgramada, RegistroDosis, Notificacion, Reporte
 };

@@ -1,22 +1,17 @@
-class CrearNotificacionDTO {
-  constructor({ id_dosis_programada, id_usuario_destinatario, tipo, mensaje }) {
-    this.id_dosis_programada     = Number(id_dosis_programada);
-    this.id_usuario_destinatario = Number(id_usuario_destinatario);
-    this.tipo                    = tipo?.trim();
-    this.mensaje                 = mensaje?.trim();
+const BaseDTO = require('../BaseDTO');
+const { crearNotificacionCondiciones } = require('../../validaciones');
+
+class CrearNotificacionDTO extends BaseDTO {
+  constructor(data = {}) {
+    super();
+    this.id_dosis_programada = BaseDTO.entero(data.id_dosis_programada);
+    this.id_usuario_destinatario = BaseDTO.entero(data.id_usuario_destinatario);
+    this.tipo = BaseDTO.texto(data.tipo);
+    this.mensaje = BaseDTO.texto(data.mensaje);
   }
 
-  validar() {
-    const errores = [];
-    if (!this.id_dosis_programada || isNaN(this.id_dosis_programada))
-      errores.push('La dosis programada es obligatoria');
-    if (!this.id_usuario_destinatario || isNaN(this.id_usuario_destinatario))
-      errores.push('El destinatario es obligatorio');
-    if (!this.tipo)
-      errores.push('El tipo de notificación es obligatorio');
-    if (!this.mensaje)
-      errores.push('El mensaje es obligatorio');
-    return errores;
+  static rules() {
+    return crearNotificacionCondiciones;
   }
 }
 

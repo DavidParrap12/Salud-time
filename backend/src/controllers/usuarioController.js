@@ -1,86 +1,96 @@
+const { Router } = require('express');
+const asyncHandler = require('../middlewares/asyncHandler');
+const validarId = require('../middlewares/validarId');
 const { Usuario, Rol, UsuarioRol } = require('../models');
 const ActualizarUsuarioDTO = require('../dtos/usuario/ActualizarUsuarioDTO');
-const UsuarioResponseDTO   = require('../dtos/usuario/UsuarioResponseDTO');
-const AsignarRolDTO        = require('../dtos/rol/AsignarRolDTO');
-const { ok, created, error } = require('../views/response');
+const UsuarioResponseDTO = require('../dtos/usuario/UsuarioResponseDTO');
+const AsignarRolDTO = require('../dtos/rol/AsignarRolDTO');
+const AsignacionRolResponseDTO = require('../dtos/rol/AsignacionRolResponseDTO');
+const { ok, created } = require('../views/response');
+const { ConflictError, NotFoundError } = require('../errors/AppError');
 
-exports.listar = async (req, res) => {
-  try {
-    const usuarios = await Usuario.findAll();
-    return ok(res, UsuarioResponseDTO.fromList(usuarios));
-  } catch (e) {
-    return error(res, 500, 'Error al listar usuarios', e.message);
-  }
+const router = Router();
+const r = (handler) => asyncHandler(handler);
+
+// ==========================================
+// Orquestación y validación HTTP
+// ==========================================
+
+const listar = async (req, res) => {
+  const usuarios = await Usuario.findAll();
+  return ok(res, UsuarioResponseDTO.fromList(usuarios));
 };
 
-exports.obtener = async (req, res) => {
-  try {
-    const usuario = await Usuario.findByPk(req.params.id, {
-      include: [{ model: Rol, as: 'roles' }]
-    });
-    if (!usuario) return error(res, 404, 'Usuario no encontrado');
-    return ok(res, new UsuarioResponseDTO(usuario));
-  } catch (e) {
-    return error(res, 500, 'Error al obtener usuario', e.message);
-  }
+const obtener = async (req, res) => {
+  const usuario = await Usuario.findByPk(req.params.id, {
+    include: [{ model: Rol, as: 'roles' }]
+  });
+  if (!usuario) throw new NotFoundError('Usuario no encontrado');
+  return ok(res, new UsuarioResponseDTO(usuario));
 };
 
-exports.actualizar = async (req, res) => {
-  try {
-    const usuario = await Usuario.findByPk(req.params.id);
-    if (!usuario) return error(res, 404, 'Usuario no encontrado');
+const actualizar = async (req, res) => {
+  const usuario = await Usuario.findByPk(req.params.id);
+  if (!usuario) throw new NotFoundError('Usuario no encontrado');
 
-    const dto = new ActualizarUsuarioDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+  // DTO de entrada: verifica formato JSON del payload
+  const dto = ActualizarUsuarioDTO.from(req.body);
 
-    await usuario.update({
-      nombre_completo: dto.nombre_completo ?? usuario.nombre_completo,
-      telefono: dto.telefono        ?? usuario.telefono,
-      edad:     dto.edad            ?? usuario.edad
-    });
+  await usuario.update({
+    nombre_completo: dto.nombre_completo ?? usuario.nombre_completo,
+    telefono: dto.telefono ?? usuario.telefono,
+    edad: dto.edad ?? usuario.edad
+  });
 
-    return ok(res, new UsuarioResponseDTO(usuario), 'Usuario actualizado');
-  } catch (e) {
-    return error(res, 500, 'Error al actualizar usuario', e.message);
-  }
+  // DTO de salida: verifica y estructura JSON
+  return ok(res, new UsuarioResponseDTO(usuario), 'Usuario actualizado');
 };
 
-exports.desactivar = async (req, res) => {
-  try {
-    const usuario = await Usuario.findByPk(req.params.id);
-    if (!usuario) return error(res, 404, 'Usuario no encontrado');
-    await usuario.update({ estado: false });
-    return ok(res, null, 'Usuario desactivado');
-  } catch (e) {
-    return error(res, 500, 'Error al desactivar usuario', e.message);
-  }
+const desactivar = async (req, res) => {
+  const usuario = await Usuario.findByPk(req.params.id);
+  if (!usuario) throw new NotFoundError('Usuario no encontrado');
+
+  await usuario.update({ estado: false });
+  return ok(res, null, 'Usuario desactivado');
 };
 
-exports.asignarRol = async (req, res) => {
-  try {
-    const usuario = await Usuario.findByPk(req.params.id);
-    if (!usuario) return error(res, 404, 'Usuario no encontrado');
+const asignarRol = async (req, res) => {
+  const usuario = await Usuario.findByPk(req.params.id);
+  if (!usuario) throw new NotFoundError('Usuario no encontrado');
 
-    const dto = new AsignarRolDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+  // DTO de entrada: verifica formato JSON
+  const dto = AsignarRolDTO.from(req.body);
 
-    const rol = await Rol.findByPk(dto.id_rol);
-    if (!rol) return error(res, 404, 'Rol no encontrado');
+  const rol = await Rol.findByPk(dto.id_rol);
+  if (!rol) throw new NotFoundError('Rol no encontrado');
 
-    const yaTiene = await UsuarioRol.findOne({
-      where: { id_usuario: usuario.id_usuario, id_rol: rol.id_rol }
-    });
-    if (yaTiene) return error(res, 409, 'El usuario ya tiene ese rol');
+  const yaTiene = await UsuarioRol.findOne({
+    where: { id_usuario: usuario.id_usuario, id_rol: rol.id_rol }
+  });
+  if (yaTiene) throw new ConflictError('El usuario ya tiene ese rol');
 
-    const asignacion = await UsuarioRol.create({
-      id_usuario: usuario.id_usuario,
-      id_rol: rol.id_rol
-    });
+  const asignacion = await UsuarioRol.create({
+    id_usuario: usuario.id_usuario,
+    id_rol: rol.id_rol,
+    id_especializacion: dto.id_especializacion
+  });
 
-    return created(res, asignacion, 'Rol asignado');
-  } catch (e) {
-    return error(res, 500, 'Error al asignar rol', e.message);
-  }
+  // DTO de salida: verifica formato JSON
+  return created(res, new AsignacionRolResponseDTO(asignacion), 'Rol asignado');
 };
+
+// ==========================================
+// Endpoints definidos en el Controller
+// ==========================================
+router.get('/', r(listar));
+router.get('/:id', validarId(), r(obtener));
+router.put('/:id', validarId(), r(actualizar));
+router.delete('/:id', validarId(), r(desactivar));
+router.post('/:id/roles', validarId(), r(asignarRol));
+
+module.exports = router;
+module.exports.listar = listar;
+module.exports.obtener = obtener;
+module.exports.actualizar = actualizar;
+module.exports.desactivar = desactivar;
+module.exports.asignarRol = asignarRol;

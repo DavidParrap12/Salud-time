@@ -1,14 +1,12 @@
-class RegistroDosisResponseDTO {
-  constructor(registro) {
-    this.id_registro_dosis   = registro.id_registro_dosis;
-    this.id_dosis_programada = registro.id_dosis_programada;
-    this.fecha_confirmacion  = registro.fecha_confirmacion;
-    this.observaciones       = registro.observaciones;
-  }
+const BaseResponseDTO = require('../BaseResponseDTO');
 
-  static fromList(lista) {
-    return lista.map(r => new RegistroDosisResponseDTO(r));
-  }
+class RegistroDosisResponseDTO extends BaseResponseDTO {
+  static fields = [
+    'id_registro_dosis',
+    'id_dosis_programada',
+    'fecha_confirmacion',
+    'observaciones'
+  ];
 }
 
 module.exports = RegistroDosisResponseDTO;

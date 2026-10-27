@@ -1,17 +1,15 @@
-class NotificacionResponseDTO {
-  constructor(n) {
-    this.id_notificacion         = n.id_notificacion;
-    this.id_dosis_programada     = n.id_dosis_programada;
-    this.id_usuario_destinatario = n.id_usuario_destinatario;
-    this.tipo                    = n.tipo;
-    this.mensaje                 = n.mensaje;
-    this.fecha_envio             = n.fecha_envio;
-    this.estado                  = n.estado;
-  }
+const BaseResponseDTO = require('../BaseResponseDTO');
 
-  static fromList(lista) {
-    return lista.map(n => new NotificacionResponseDTO(n));
-  }
+class NotificacionResponseDTO extends BaseResponseDTO {
+  static fields = [
+    'id_notificacion',
+    'id_dosis_programada',
+    'id_usuario_destinatario',
+    'tipo',
+    'mensaje',
+    'fecha_envio',
+    'estado'
+  ];
 }
 
 module.exports = NotificacionResponseDTO;

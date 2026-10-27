@@ -1,15 +1,22 @@
-class ActualizarCuidadorDTO {
+const BaseDTO = require('../BaseDTO');
+const {
+  actualizarCuidadorCondiciones,
+  actualizarCuidadorReglaCruzada
+} = require('../../validaciones');
+
+class ActualizarCuidadorDTO extends BaseDTO {
   constructor(data = {}) {
-    const { parentesco, estado } = data;
-    this.parentesco = parentesco?.trim();
-    this.estado     = estado;
+    super();
+    this.parentesco = BaseDTO.texto(data.parentesco);
+    this.estado = data.estado;
   }
 
-  validar() {
-    const errores = [];
-    if (this.estado !== undefined && typeof this.estado !== 'boolean')
-      errores.push('El estado debe ser booleano');
-    return errores;
+  static rules() {
+    return actualizarCuidadorCondiciones;
+  }
+
+  validarReglasCruzadas() {
+    return actualizarCuidadorReglaCruzada(this);
   }
 }
 

@@ -1,22 +1,25 @@
-class ActualizarMedicamentoDTO {
+const BaseDTO = require('../BaseDTO');
+const {
+  actualizarMedicamentoCondiciones,
+  actualizarMedicamentoReglaCruzada
+} = require('../../validaciones');
+
+class ActualizarMedicamentoDTO extends BaseDTO {
   constructor(data = {}) {
-    const { nombre, presentacion, descripcion, fecha_vencimiento, estado } = data;
-    this.nombre            = nombre?.trim();
-    this.presentacion      = presentacion?.trim();
-    this.descripcion       = descripcion?.trim();
-    this.fecha_vencimiento = fecha_vencimiento;
-    this.estado            = estado;
+    super();
+    this.nombre = BaseDTO.texto(data.nombre);
+    this.presentacion = BaseDTO.texto(data.presentacion);
+    this.descripcion = BaseDTO.texto(data.descripcion);
+    this.fecha_vencimiento = data.fecha_vencimiento;
+    this.estado = data.estado;
   }
 
-  validar() {
-    const errores = [];
-    if (this.nombre !== undefined && this.nombre.length < 2)
-      errores.push('El nombre es demasiado corto');
-    if (this.fecha_vencimiento !== undefined && this.fecha_vencimiento && isNaN(Date.parse(this.fecha_vencimiento)))
-      errores.push('La fecha de vencimiento no tiene un formato válido');
-    if (this.estado !== undefined && typeof this.estado !== 'boolean')
-      errores.push('El estado debe ser booleano');
-    return errores;
+  static rules() {
+    return actualizarMedicamentoCondiciones;
+  }
+
+  validarReglasCruzadas() {
+    return actualizarMedicamentoReglaCruzada(this);
   }
 }
 

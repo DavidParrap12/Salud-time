@@ -1,161 +1,142 @@
+const { Router } = require('express');
+const asyncHandler = require('../middlewares/asyncHandler');
+const validarId = require('../middlewares/validarId');
 const { Tratamiento, Recordatorio, DosisProgramada } = require('../models');
 const CalendarioResponseDTO = require('../dtos/calendario/CalendarioResponseDTO');
+const CalendarioQueryDTO = require('../dtos/calendario/CalendarioQueryDTO');
+const CalendarioFechaQueryDTO = require('../dtos/calendario/CalendarioFechaQueryDTO');
 const DosisProgramadaResponseDTO = require('../dtos/dosis/DosisProgramadaResponseDTO');
-const { ok, error }         = require('../views/response');
+const { ok } = require('../views/response');
 const { Op } = require('sequelize');
+const { fechaLocal } = require('../utils/fechas');
 
-// Fecha local en formato YYYY-MM-DD (evita el desfase de toISOString en zonas UTC-)
-const fechaLocal = (valor) => {
-  const d = new Date(valor);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+const router = Router();
+const r = (handler) => asyncHandler(handler);
 
-exports.obtener = async (req, res) => {
-  try {
-    const { id_usuario } = req.params;
-    const { mes, anio } = req.query;
-
-    const mesNum = parseInt(mes, 10);
-    const anioNum = parseInt(anio, 10);
-    if (!mesNum || !anioNum || mesNum < 1 || mesNum > 12) {
-      return error(res, 400, 'Mes y año válidos son requeridos en la consulta (?mes=X&anio=Y)');
-    }
-
-    const inicio = new Date(anioNum, mesNum - 1, 1);
-    const fin    = new Date(anioNum, mesNum, 0, 23, 59, 59);
-
-    const tratamientos = await Tratamiento.findAll({
-      where: { id_paciente: id_usuario, estado: true },
-      include: [{
-        model: Recordatorio, as: 'recordatorios',
-        include: [{ model: DosisProgramada, as: 'dosis', where: { fecha_hora: { [Op.between]: [inicio, fin] } }, required: false }]
-      }]
-    });
-
-    const dias = {};
-    for (const t of tratamientos) {
-      for (const r of (t.recordatorios || [])) {
-        for (const d of (r.dosis || [])) {
-          const fecha = fechaLocal(d.fecha_hora);
-          if (!dias[fecha]) dias[fecha] = { fecha, tomadas: 0, omitidas: 0, total: 0 };
-          dias[fecha].total++;
-          if (d.estado === 'TOMADA') dias[fecha].tomadas++;
-          if (d.estado === 'OMITIDA') dias[fecha].omitidas++;
-        }
-      }
-    }
-
-    return ok(res, new CalendarioResponseDTO({
-      mes: mesNum, anio: anioNum, dias: Object.values(dias)
-    }));
-  } catch (e) {
-    return error(res, 500, 'Error al obtener calendario', e.message);
-  }
-};
-
-exports.porFecha = async (req, res) => {
-  try {
-    const { id_usuario } = req.params;
-    const { fecha } = req.query;
-    const partes = String(fecha).split('-').map(Number);
-    if (partes.length !== 3 || partes.some(n => isNaN(n))) {
-      return error(res, 400, 'Parámetro de fecha válido requerido (?fecha=YYYY-MM-DD)');
-    }
-
-    const [anio, mes, diaNum] = partes;
-    const inicio = new Date(anio, mes - 1, diaNum, 0, 0, 0);
-    const fin    = new Date(anio, mes - 1, diaNum, 23, 59, 59);
-
-    const tratamientos = await Tratamiento.findAll({
-      where: { id_paciente: id_usuario, estado: true },
-      include: [{
-        model: Recordatorio, as: 'recordatorios',
-        include: [{ model: DosisProgramada, as: 'dosis', where: { fecha_hora: { [Op.between]: [inicio, fin] } }, required: false }]
-      }]
-    });
-
-    const resultado = [];
-    for (const t of tratamientos)
-      for (const r of (t.recordatorios || []))
-        for (const d of (r.dosis || [])) resultado.push(d);
-
-    return ok(res, DosisProgramadaResponseDTO.fromList(resultado));
-  } catch (e) {
-    return error(res, 500, 'Error al consultar por fecha', e.message);
-  }
-};
-
-exports.tomadas = async (req, res) => {
-  try {
-    const idUsuario = req.params.id_usuario || req.query.id_usuario;
-    const includeTratamiento = idUsuario ? [{
+const dosisDelPaciente = async (idUsuario, whereDosis) => {
+  return Tratamiento.findAll({
+    where: { id_paciente: idUsuario, estado: true },
+    include: [{
       model: Recordatorio,
-      as: 'recordatorio',
-      required: true,
+      as: 'recordatorios',
       include: [{
-        model: Tratamiento,
-        as: 'tratamiento',
-        where: { id_paciente: idUsuario },
-        required: true
+        model: DosisProgramada,
+        as: 'dosis',
+        where: whereDosis,
+        required: false
       }]
-    }] : [];
-
-    const dosis = await DosisProgramada.findAll({
-      where: { estado: 'TOMADA' },
-      include: includeTratamiento
-    });
-    return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
-  } catch (e) {
-    return error(res, 500, 'Error al listar tomadas', e.message);
-  }
+    }]
+  });
 };
 
-exports.omitidas = async (req, res) => {
-  try {
-    const idUsuario = req.params.id_usuario || req.query.id_usuario;
-    const includeTratamiento = idUsuario ? [{
-      model: Recordatorio,
-      as: 'recordatorio',
-      required: true,
-      include: [{
-        model: Tratamiento,
-        as: 'tratamiento',
-        where: { id_paciente: idUsuario },
-        required: true
-      }]
-    }] : [];
-
-    const dosis = await DosisProgramada.findAll({
-      where: { estado: 'OMITIDA' },
-      include: includeTratamiento
-    });
-    return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
-  } catch (e) {
-    return error(res, 500, 'Error al listar omitidas', e.message);
+const aplanarDosis = (tratamientos) => {
+  const resultado = [];
+  for (const t of tratamientos) {
+    for (const r of (t.recordatorios || [])) {
+      for (const d of (r.dosis || [])) resultado.push(d);
+    }
   }
+  return resultado;
 };
 
-exports.historial = async (req, res) => {
-  try {
-    const idUsuario = req.params.id_usuario || req.query.id_usuario;
-    const includeTratamiento = idUsuario ? [{
-      model: Recordatorio,
-      as: 'recordatorio',
-      required: true,
-      include: [{
-        model: Tratamiento,
-        as: 'tratamiento',
-        where: { id_paciente: idUsuario },
-        required: true
-      }]
-    }] : [];
+const includePorUsuario = (idUsuario) => [{
+  model: Recordatorio,
+  as: 'recordatorio',
+  required: true,
+  include: [{
+    model: Tratamiento,
+    as: 'tratamiento',
+    where: { id_paciente: idUsuario },
+    required: true
+  }]
+}];
 
-    const dosis = await DosisProgramada.findAll({
-      include: includeTratamiento,
-      order: [['fecha_hora', 'DESC']]
-    });
-    return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
-  } catch (e) {
-    return error(res, 500, 'Error al obtener historial', e.message);
+// ==========================================
+// Orquestación y validación HTTP
+// ==========================================
+
+const obtener = async (req, res) => {
+  const { id_usuario } = req.params;
+  // DTO de entrada: verifica formato JSON de query params
+  const { mes, anio } = CalendarioQueryDTO.from(req.query);
+
+  const inicio = new Date(anio, mes - 1, 1);
+  const fin = new Date(anio, mes, 0, 23, 59, 59);
+
+  const tratamientos = await dosisDelPaciente(id_usuario, {
+    fecha_hora: { [Op.between]: [inicio, fin] }
+  });
+
+  const dias = {};
+  for (const d of aplanarDosis(tratamientos)) {
+    const fecha = fechaLocal(d.fecha_hora);
+    if (!dias[fecha]) dias[fecha] = { fecha, tomadas: 0, omitidas: 0, total: 0 };
+    dias[fecha].total++;
+    if (d.estado === 'TOMADA') dias[fecha].tomadas++;
+    if (d.estado === 'OMITIDA') dias[fecha].omitidas++;
   }
+
+  // DTO de salida: verifica y da formato JSON al resultado
+  return ok(res, new CalendarioResponseDTO({
+    mes,
+    anio,
+    dias: Object.values(dias)
+  }));
 };
+
+const porFecha = async (req, res) => {
+  const { id_usuario } = req.params;
+  // DTO de entrada: verifica formato JSON de query params
+  const { fecha } = CalendarioFechaQueryDTO.from(req.query);
+
+  const [anio, mes, dia] = String(fecha).split('-').map(Number);
+  const inicio = new Date(anio, mes - 1, dia, 0, 0, 0);
+  const fin = new Date(anio, mes - 1, dia, 23, 59, 59);
+
+  const tratamientos = await dosisDelPaciente(id_usuario, {
+    fecha_hora: { [Op.between]: [inicio, fin] }
+  });
+
+  // DTO de salida: verifica JSON
+  return ok(res, DosisProgramadaResponseDTO.fromList(aplanarDosis(tratamientos)));
+};
+
+const tomadas = async (req, res) => {
+  const dosis = await DosisProgramada.findAll({
+    where: { estado: 'TOMADA' },
+    include: includePorUsuario(req.params.id_usuario)
+  });
+  return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
+};
+
+const omitidas = async (req, res) => {
+  const dosis = await DosisProgramada.findAll({
+    where: { estado: 'OMITIDA' },
+    include: includePorUsuario(req.params.id_usuario)
+  });
+  return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
+};
+
+const historial = async (req, res) => {
+  const dosis = await DosisProgramada.findAll({
+    include: includePorUsuario(req.params.id_usuario),
+    order: [['fecha_hora', 'DESC']]
+  });
+  return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
+};
+
+// ==========================================
+// Endpoints definidos en el Controller
+// ==========================================
+router.get('/:id_usuario/fecha', validarId('id_usuario'), r(porFecha));
+router.get('/:id_usuario/tomadas', validarId('id_usuario'), r(tomadas));
+router.get('/:id_usuario/omitidas', validarId('id_usuario'), r(omitidas));
+router.get('/:id_usuario/historial', validarId('id_usuario'), r(historial));
+router.get('/:id_usuario', validarId('id_usuario'), r(obtener));
+
+module.exports = router;
+module.exports.obtener = obtener;
+module.exports.porFecha = porFecha;
+module.exports.tomadas = tomadas;
+module.exports.omitidas = omitidas;
+module.exports.historial = historial;

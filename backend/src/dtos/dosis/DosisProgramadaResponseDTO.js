@@ -1,14 +1,12 @@
-class DosisProgramadaResponseDTO {
-  constructor(dosis) {
-    this.id_dosis_programada = dosis.id_dosis_programada;
-    this.id_recordatorio     = dosis.id_recordatorio;
-    this.fecha_hora          = dosis.fecha_hora;
-    this.estado              = dosis.estado;
-  }
+const BaseResponseDTO = require('../BaseResponseDTO');
 
-  static fromList(lista) {
-    return lista.map(d => new DosisProgramadaResponseDTO(d));
-  }
+class DosisProgramadaResponseDTO extends BaseResponseDTO {
+  static fields = [
+    'id_dosis_programada',
+    'id_recordatorio',
+    'fecha_hora',
+    'estado'
+  ];
 }
 
 module.exports = DosisProgramadaResponseDTO;

@@ -1,46 +1,58 @@
+const { Router } = require('express');
+const asyncHandler = require('../middlewares/asyncHandler');
+const validarId = require('../middlewares/validarId');
 const { Notificacion } = require('../models');
-const CrearNotificacionDTO      = require('../dtos/notificacion/CrearNotificacionDTO');
-const NotificacionResponseDTO   = require('../dtos/notificacion/NotificacionResponseDTO');
-const { ok, created, error }    = require('../views/response');
+const CrearNotificacionDTO = require('../dtos/notificacion/CrearNotificacionDTO');
+const NotificacionResponseDTO = require('../dtos/notificacion/NotificacionResponseDTO');
+const { ok, created } = require('../views/response');
+const { NotFoundError } = require('../errors/AppError');
 
-exports.listarPorUsuario = async (req, res) => {
-  try {
-    const lista = await Notificacion.findAll({
-      where: { id_usuario_destinatario: req.params.id_usuario }
-    });
-    return ok(res, NotificacionResponseDTO.fromList(lista));
-  } catch (e) {
-    return error(res, 500, 'Error al listar notificaciones', e.message);
-  }
+const router = Router();
+const r = (handler) => asyncHandler(handler);
+
+// ==========================================
+// Orquestación y validación HTTP
+// ==========================================
+
+const listarPorUsuario = async (req, res) => {
+  const lista = await Notificacion.findAll({
+    where: { id_usuario_destinatario: req.params.id_usuario }
+  });
+  return ok(res, NotificacionResponseDTO.fromList(lista));
 };
 
-exports.crear = async (req, res) => {
-  try {
-    const dto = new CrearNotificacionDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+const crear = async (req, res) => {
+  // DTO de entrada: verifica formato JSON
+  const dto = CrearNotificacionDTO.from(req.body);
 
-    const notif = await Notificacion.create({
-      id_dosis_programada: dto.id_dosis_programada,
-      id_usuario_destinatario: dto.id_usuario_destinatario,
-      tipo: dto.tipo,
-      mensaje: dto.mensaje,
-      estado: 'PENDIENTE'
-    });
+  const notificacion = await Notificacion.create({
+    id_dosis_programada: dto.id_dosis_programada,
+    id_usuario_destinatario: dto.id_usuario_destinatario,
+    tipo: dto.tipo,
+    mensaje: dto.mensaje,
+    estado: 'PENDIENTE'
+  });
 
-    return created(res, new NotificacionResponseDTO(notif), 'Notificación creada');
-  } catch (e) {
-    return error(res, 500, 'Error al crear notificación', e.message);
-  }
+  // DTO de salida: verifica y limpia JSON
+  return created(res, new NotificacionResponseDTO(notificacion), 'Notificación creada');
 };
 
-exports.marcarLeida = async (req, res) => {
-  try {
-    const notif = await Notificacion.findByPk(req.params.id);
-    if (!notif) return error(res, 404, 'Notificación no encontrada');
-    await notif.update({ estado: 'LEIDA' });
-    return ok(res, new NotificacionResponseDTO(notif), 'Notificación marcada como leída');
-  } catch (e) {
-    return error(res, 500, 'Error al marcar notificación', e.message);
-  }
+const marcarLeida = async (req, res) => {
+  const notificacion = await Notificacion.findByPk(req.params.id);
+  if (!notificacion) throw new NotFoundError('Notificación no encontrada');
+
+  await notificacion.update({ estado: 'LEIDA' });
+  return ok(res, new NotificacionResponseDTO(notificacion), 'Notificación marcada como leída');
 };
+
+// ==========================================
+// Endpoints definidos en el Controller
+// ==========================================
+router.get('/usuario/:id_usuario', validarId('id_usuario'), r(listarPorUsuario));
+router.post('/', r(crear));
+router.patch('/:id/leida', validarId(), r(marcarLeida));
+
+module.exports = router;
+module.exports.listarPorUsuario = listarPorUsuario;
+module.exports.crear = crear;
+module.exports.marcarLeida = marcarLeida;

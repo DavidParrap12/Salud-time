@@ -1,17 +1,16 @@
-class CrearCuidadorDTO {
-  constructor({ id_paciente, correo_cuidador, parentesco }) {
-    this.id_paciente      = Number(id_paciente);
-    this.correo_cuidador  = correo_cuidador?.trim().toLowerCase();
-    this.parentesco       = parentesco?.trim() || null;
+const BaseDTO = require('../BaseDTO');
+const { crearCuidadorCondiciones } = require('../../validaciones');
+
+class CrearCuidadorDTO extends BaseDTO {
+  constructor(data = {}) {
+    super();
+    this.id_paciente = BaseDTO.entero(data.id_paciente);
+    this.correo_cuidador = BaseDTO.texto(data.correo_cuidador)?.toLowerCase();
+    this.parentesco = BaseDTO.texto(data.parentesco) || null;
   }
 
-  validar() {
-    const errores = [];
-    if (!this.id_paciente || isNaN(this.id_paciente))
-      errores.push('El paciente es obligatorio');
-    if (!this.correo_cuidador || !/^[\w.-]+@[\w.-]+\.\w+$/.test(this.correo_cuidador))
-      errores.push('El correo del cuidador no es válido');
-    return errores;
+  static rules() {
+    return crearCuidadorCondiciones;
   }
 }
 

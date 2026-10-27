@@ -1,0 +1,636 @@
+{
+  "info": {
+    "name": "Salud Time API",
+    "description": "Colección de pruebas HTTP para la API Salud Time. Ejecutar primero 'Login' para guardar el token. Los ids corresponden a los datos de npm run seed.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "id_medicamento", "value": "1" },
+    { "key": "id_reporte", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "01 - Salud",
+      "item": [
+        {
+          "name": "Estado del servicio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Base de datos conectada', () => pm.expect(pm.response.json().success).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Autenticación",
+      "item": [
+        {
+          "name": "Login (ejecutar primero)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login exitoso', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token', pm.response.json().data.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"paciente@saludtime.com\",\n  \"contrasena\": \"Salud1234\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Login inválido (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Rechaza credenciales', () => pm.response.to.have.status(401));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"paciente@saludtime.com\",\n  \"contrasena\": \"incorrecta\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Registro de paciente",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_completo\": \"Paciente de Prueba\",\n  \"correo\": \"paciente.prueba@saludtime.com\",\n  \"contrasena\": \"Salud1234\",\n  \"edad\": 40,\n  \"telefono\": \"3000000000\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/registro/paciente"
+          }
+        },
+        {
+          "name": "Registro inválido (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Valida entrada', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_completo\": \"AB\",\n  \"correo\": \"no-es-correo\",\n  \"contrasena\": \"123\",\n  \"edad\": 200\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/registro/paciente"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Catálogos",
+      "item": [
+        {
+          "name": "Especializaciones",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/especializaciones"
+          }
+        },
+        {
+          "name": "Roles",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/roles"
+          }
+        },
+        {
+          "name": "Usuarios",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/usuarios"
+          }
+        },
+        {
+          "name": "Usuario por id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/usuarios/1"
+          }
+        },
+        {
+          "name": "Actualizar usuario",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"telefono\": \"3001234567\",\n  \"edad\": 72\n}"
+            },
+            "url": "{{baseUrl}}/api/usuarios/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Medicamentos",
+      "item": [
+        {
+          "name": "Listar",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/medicamentos"
+          }
+        },
+        {
+          "name": "Crear",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Creado', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('id_medicamento', pm.response.json().data.id_medicamento);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ibuprofeno\",\n  \"presentacion\": \"Tableta 400 mg\",\n  \"descripcion\": \"Analgésico y antiinflamatorio\",\n  \"fecha_vencimiento\": \"2027-12-31\"\n}"
+            },
+            "url": "{{baseUrl}}/api/medicamentos"
+          }
+        },
+        {
+          "name": "Validar sin guardar",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\",\n  \"fecha_vencimiento\": \"fecha-invalida\"\n}"
+            },
+            "url": "{{baseUrl}}/api/medicamentos/validar"
+          }
+        },
+        {
+          "name": "Obtener por id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/medicamentos/{{id_medicamento}}"
+          }
+        },
+        {
+          "name": "Actualizar",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descripcion\": \"Descripción actualizada\"\n}"
+            },
+            "url": "{{baseUrl}}/api/medicamentos/{{id_medicamento}}"
+          }
+        },
+        {
+          "name": "Vencimiento",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/medicamentos/{{id_medicamento}}/vencimiento"
+          }
+        },
+        {
+          "name": "Desactivar",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/medicamentos/{{id_medicamento}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Tratamientos y recordatorios",
+      "item": [
+        {
+          "name": "Tratamientos del paciente",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/tratamientos/paciente/1"
+          }
+        },
+        {
+          "name": "Crear tratamiento",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_paciente\": 1,\n  \"id_medicamento\": 1,\n  \"id_medico\": 2,\n  \"dosis\": \"1 tableta cada 12 horas\",\n  \"fecha_inicio\": \"2026-10-20\",\n  \"fecha_fin\": \"2026-11-20\"\n}"
+            },
+            "url": "{{baseUrl}}/api/tratamientos"
+          }
+        },
+        {
+          "name": "Recordatorios del tratamiento",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/recordatorios/tratamiento/1"
+          }
+        },
+        {
+          "name": "Crear recordatorio",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_tratamiento\": 1,\n  \"hora\": \"20:00\",\n  \"dias_semana\": \"LUN,MAR,MIE,JUE,VIE\",\n  \"fecha_inicio\": \"2026-10-20\",\n  \"fecha_fin\": \"2026-11-20\"\n}"
+            },
+            "url": "{{baseUrl}}/api/recordatorios"
+          }
+        },
+        {
+          "name": "Cambiar hora",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hora\": \"21:00\"\n}"
+            },
+            "url": "{{baseUrl}}/api/recordatorios/1/hora"
+          }
+        },
+        {
+          "name": "Cambiar días",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dias_semana\": \"LUN,MAR,MIE,JUE,VIE,SAB\"\n}"
+            },
+            "url": "{{baseUrl}}/api/recordatorios/1/dias"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Dosis",
+      "item": [
+        {
+          "name": "Pendientes",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/dosis/pendientes?id_paciente=1"
+          }
+        },
+        {
+          "name": "Confirmar dosis",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"observaciones\": \"Tomada con el desayuno\"\n}"
+            },
+            "url": "{{baseUrl}}/api/dosis/1/confirmar"
+          }
+        },
+        {
+          "name": "Omitir dosis",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"El paciente olvidó la dosis\"\n}"
+            },
+            "url": "{{baseUrl}}/api/dosis/2/omitir"
+          }
+        },
+        {
+          "name": "Generar alerta",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_dosis_programada\": 1,\n  \"id_usuario_destinatario\": 3\n}"
+            },
+            "url": "{{baseUrl}}/api/dosis/alerta"
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Calendario y dashboard",
+      "item": [
+        {
+          "name": "Calendario del mes",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/calendario/1?mes=10&anio=2026"
+          }
+        },
+        {
+          "name": "Calendario sin parámetros (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Exige mes y año', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/calendario/1"
+          }
+        },
+        {
+          "name": "Calendario por fecha",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/calendario/1/fecha?fecha=2026-10-27"
+          }
+        },
+        {
+          "name": "Historial",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/calendario/1/historial"
+          }
+        },
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/dashboard/1"
+          }
+        },
+        {
+          "name": "Medicamentos de hoy",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/dashboard/1/medicamentos-hoy"
+          }
+        },
+        {
+          "name": "Dosis pendientes del dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/dashboard/1/dosis-pendientes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Notificaciones",
+      "item": [
+        {
+          "name": "Notificaciones del cuidador",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/notificaciones/usuario/3"
+          }
+        },
+        {
+          "name": "Marcar como leída",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/notificaciones/1/leida"
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Reportes",
+      "item": [
+        {
+          "name": "Generar reporte",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Reporte creado', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('id_reporte', pm.response.json().data.id_reporte);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_usuario\": 1,\n  \"fecha_inicio\": \"2026-10-20\",\n  \"fecha_fin\": \"2026-10-27\"\n}"
+            },
+            "url": "{{baseUrl}}/api/reportes"
+          }
+        },
+        {
+          "name": "Obtener reporte",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/reportes/{{id_reporte}}"
+          }
+        },
+        {
+          "name": "Estadísticas",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/reportes/{{id_reporte}}/estadisticas"
+          }
+        },
+        {
+          "name": "Cumplimiento",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/reportes/{{id_reporte}}/cumplimiento"
+          }
+        },
+        {
+          "name": "Compartir",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_reporte\": {{id_reporte}},\n  \"correo_destino\": \"cuidador@saludtime.com\"\n}"
+            },
+            "url": "{{baseUrl}}/api/reportes/compartir"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Cuidadores y registros",
+      "item": [
+        {
+          "name": "Cuidadores del paciente",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/cuidadores/paciente/1"
+          }
+        },
+        {
+          "name": "Crear cuidador",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_paciente\": 1,\n  \"correo_cuidador\": \"cuidador@saludtime.com\",\n  \"parentesco\": \"Hija\"\n}"
+            },
+            "url": "{{baseUrl}}/api/cuidadores"
+          }
+        },
+        {
+          "name": "Registros de dosis",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/registros?id_paciente=1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - Errores controlados",
+      "item": [
+        {
+          "name": "Ruta inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('404 controlado', () => pm.response.to.have.status(404));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/ruta-inexistente"
+          }
+        },
+        {
+          "name": "Medicamento inexistente (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('404 de recurso', () => pm.response.to.have.status(404));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/medicamentos/999999"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,18 +1,24 @@
-class ActualizarTratamientoDTO {
-  constructor({ dosis, fecha_inicio, fecha_fin, estado }) {
-    this.dosis        = dosis?.trim();
-    this.fecha_inicio = fecha_inicio;
-    this.fecha_fin    = fecha_fin;
-    this.estado       = estado;
+const BaseDTO = require('../BaseDTO');
+const {
+  actualizarTratamientoCondiciones,
+  actualizarTratamientoReglaCruzada
+} = require('../../validaciones');
+
+class ActualizarTratamientoDTO extends BaseDTO {
+  constructor(data = {}) {
+    super();
+    this.dosis = BaseDTO.texto(data.dosis);
+    this.fecha_inicio = data.fecha_inicio;
+    this.fecha_fin = data.fecha_fin;
+    this.estado = data.estado;
   }
 
-  validar() {
-    const errores = [];
-    if (this.dosis !== undefined && !this.dosis)
-      errores.push('La dosis no puede estar vacía');
-    if (this.estado !== undefined && typeof this.estado !== 'boolean')
-      errores.push('El estado debe ser booleano');
-    return errores;
+  static rules() {
+    return actualizarTratamientoCondiciones;
+  }
+
+  validarReglasCruzadas() {
+    return actualizarTratamientoReglaCruzada(this);
   }
 }
 

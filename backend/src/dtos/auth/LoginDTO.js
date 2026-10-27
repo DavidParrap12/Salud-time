@@ -1,14 +1,15 @@
-class LoginDTO {
-  constructor({ correo, contrasena }) {
-    this.correo     = correo?.trim().toLowerCase();
-    this.contrasena = contrasena;
+const BaseDTO = require('../BaseDTO');
+const { loginCondiciones } = require('../../validaciones');
+
+class LoginDTO extends BaseDTO {
+  constructor(data = {}) {
+    super();
+    this.correo = BaseDTO.texto(data.correo)?.toLowerCase();
+    this.contrasena = data.contrasena;
   }
 
-  validar() {
-    const errores = [];
-    if (!this.correo)     errores.push('El correo es obligatorio');
-    if (!this.contrasena) errores.push('La contraseña es obligatoria');
-    return errores;
+  static rules() {
+    return loginCondiciones;
   }
 }
 

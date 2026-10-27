@@ -1,13 +1,7 @@
-class EspecializacionResponseDTO {
-  constructor(esp) {
-    this.id_especializacion = esp.id_especializacion;
-    this.nombre             = esp.nombre;
-    this.descripcion        = esp.descripcion;
-  }
+const BaseResponseDTO = require('../BaseResponseDTO');
 
-  static fromList(lista) {
-    return lista.map(e => new EspecializacionResponseDTO(e));
-  }
+class EspecializacionResponseDTO extends BaseResponseDTO {
+  static fields = ['id_especializacion', 'nombre', 'descripcion'];
 }
 
 module.exports = EspecializacionResponseDTO;

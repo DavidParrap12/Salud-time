@@ -1,13 +1,14 @@
-class RecuperarPasswordDTO {
-  constructor({ correo }) {
-    this.correo = correo?.trim().toLowerCase();
+const BaseDTO = require('../BaseDTO');
+const { recuperarPasswordCondiciones } = require('../../validaciones');
+
+class RecuperarPasswordDTO extends BaseDTO {
+  constructor(data = {}) {
+    super();
+    this.correo = BaseDTO.texto(data.correo)?.toLowerCase();
   }
 
-  validar() {
-    const errores = [];
-    if (!this.correo || !/^[\w.-]+@[\w.-]+\.\w+$/.test(this.correo))
-      errores.push('El correo no tiene un formato válido');
-    return errores;
+  static rules() {
+    return recuperarPasswordCondiciones;
   }
 }
 

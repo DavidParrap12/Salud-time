@@ -1,20 +1,23 @@
-class CrearReporteDTO {
+const BaseDTO = require('../BaseDTO');
+const {
+  crearReporteCondiciones,
+  crearReporteReglaCruzada
+} = require('../../validaciones');
+
+class CrearReporteDTO extends BaseDTO {
   constructor(data = {}) {
-    const { id_usuario, fecha_inicio, fecha_fin } = data;
-    this.id_usuario   = Number(id_usuario);
-    this.fecha_inicio = fecha_inicio;
-    this.fecha_fin    = fecha_fin;
+    super();
+    this.id_usuario = BaseDTO.entero(data.id_usuario);
+    this.fecha_inicio = data.fecha_inicio;
+    this.fecha_fin = data.fecha_fin;
   }
 
-  validar() {
-    const errores = [];
-    if (!this.id_usuario || isNaN(this.id_usuario))
-      errores.push('El usuario es obligatorio');
-    if (!this.fecha_inicio || !this.fecha_fin)
-      errores.push('El rango de fechas es obligatorio');
-    if (this.fecha_inicio && this.fecha_fin && new Date(this.fecha_fin) < new Date(this.fecha_inicio))
-      errores.push('La fecha fin no puede ser anterior a la fecha inicio');
-    return errores;
+  static rules() {
+    return crearReporteCondiciones;
+  }
+
+  validarReglasCruzadas() {
+    return crearReporteReglaCruzada(this);
   }
 }
 

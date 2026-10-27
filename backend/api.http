@@ -1,0 +1,302 @@
+# API Salud Time - ejemplos para VS Code (extensión REST Client)
+# Ejecutar primero la petición "login" para obtener el token.
+# El token se toma automáticamente de la respuesta del login.
+
+@host = http://localhost:3000
+@token = {{login.response.body.$.data.token}}
+
+### 0. Estado del servicio
+GET {{host}}/api/health
+
+### 1. Login (ejecutar primero)
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "correo": "paciente@saludtime.com",
+  "contrasena": "Salud1234"
+}
+
+### 2. Login inválido (espera 401)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "correo": "paciente@saludtime.com",
+  "contrasena": "incorrecta"
+}
+
+### 3. Registro de paciente
+POST {{host}}/api/auth/registro/paciente
+Content-Type: application/json
+
+{
+  "nombre_completo": "Paciente de Prueba",
+  "correo": "paciente.prueba@saludtime.com",
+  "contrasena": "Salud1234",
+  "edad": 40,
+  "telefono": "3000000000"
+}
+
+### 4. Registro inválido (espera 400)
+POST {{host}}/api/auth/registro/paciente
+Content-Type: application/json
+
+{
+  "nombre_completo": "AB",
+  "correo": "no-es-correo",
+  "contrasena": "123",
+  "edad": 200
+}
+
+### 5. Especializaciones
+GET {{host}}/api/especializaciones
+Authorization: Bearer {{token}}
+
+### 6. Roles
+GET {{host}}/api/roles
+Authorization: Bearer {{token}}
+
+### 7. Usuarios
+GET {{host}}/api/usuarios
+Authorization: Bearer {{token}}
+
+### 8. Usuario por id
+GET {{host}}/api/usuarios/1
+Authorization: Bearer {{token}}
+
+### 9. Actualizar usuario
+PUT {{host}}/api/usuarios/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "telefono": "3001234567",
+  "edad": 72
+}
+
+### 10. Medicamentos
+GET {{host}}/api/medicamentos
+Authorization: Bearer {{token}}
+
+### 11. Crear medicamento
+# @name crearMedicamento
+POST {{host}}/api/medicamentos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Ibuprofeno",
+  "presentacion": "Tableta 400 mg",
+  "descripcion": "Analgésico y antiinflamatorio",
+  "fecha_vencimiento": "2027-12-31"
+}
+
+### 12. Validar medicamento (sin guardar)
+POST {{host}}/api/medicamentos/validar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "",
+  "fecha_vencimiento": "fecha-invalida"
+}
+
+### 13. Medicamento por id
+GET {{host}}/api/medicamentos/1
+Authorization: Bearer {{token}}
+
+### 14. Vencimiento
+GET {{host}}/api/medicamentos/1/vencimiento
+Authorization: Bearer {{token}}
+
+### 15. Actualizar medicamento
+PUT {{host}}/api/medicamentos/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "descripcion": "Antihipertensivo actualizado"
+}
+
+### 16. Desactivar medicamento
+DELETE {{host}}/api/medicamentos/2
+Authorization: Bearer {{token}}
+
+### 17. Tratamientos del paciente
+GET {{host}}/api/tratamientos/paciente/1
+Authorization: Bearer {{token}}
+
+### 18. Crear tratamiento
+POST {{host}}/api/tratamientos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "id_paciente": 1,
+  "id_medicamento": 1,
+  "id_medico": 2,
+  "dosis": "1 tableta cada 12 horas",
+  "fecha_inicio": "2026-10-20",
+  "fecha_fin": "2026-11-20"
+}
+
+### 19. Recordatorios del tratamiento
+GET {{host}}/api/recordatorios/tratamiento/1
+Authorization: Bearer {{token}}
+
+### 20. Crear recordatorio
+POST {{host}}/api/recordatorios
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "id_tratamiento": 1,
+  "hora": "20:00",
+  "dias_semana": "LUN,MAR,MIE,JUE,VIE",
+  "fecha_inicio": "2026-10-20",
+  "fecha_fin": "2026-11-20"
+}
+
+### 21. Cambiar hora
+PATCH {{host}}/api/recordatorios/1/hora
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "hora": "21:00"
+}
+
+### 22. Cambiar días
+PATCH {{host}}/api/recordatorios/1/dias
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "dias_semana": "LUN,MAR,MIE,JUE,VIE,SAB"
+}
+
+### 23. Dosis pendientes
+GET {{host}}/api/dosis/pendientes?id_paciente=1
+Authorization: Bearer {{token}}
+
+### 24. Confirmar dosis
+POST {{host}}/api/dosis/1/confirmar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "observaciones": "Tomada con el desayuno"
+}
+
+### 25. Omitir dosis
+POST {{host}}/api/dosis/2/omitir
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "motivo": "El paciente olvidó la dosis"
+}
+
+### 26. Generar alerta
+POST {{host}}/api/dosis/alerta
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "id_dosis_programada": 1,
+  "id_usuario_destinatario": 3
+}
+
+### 27. Calendario del mes
+GET {{host}}/api/calendario/1?mes=10&anio=2026
+Authorization: Bearer {{token}}
+
+### 28. Calendario sin parámetros (espera 400)
+GET {{host}}/api/calendario/1
+Authorization: Bearer {{token}}
+
+### 29. Calendario por fecha
+GET {{host}}/api/calendario/1/fecha?fecha=2026-10-27
+Authorization: Bearer {{token}}
+
+### 30. Historial
+GET {{host}}/api/calendario/1/historial
+Authorization: Bearer {{token}}
+
+### 31. Dashboard
+GET {{host}}/api/dashboard/1
+Authorization: Bearer {{token}}
+
+### 32. Medicamentos de hoy
+GET {{host}}/api/dashboard/1/medicamentos-hoy
+Authorization: Bearer {{token}}
+
+### 33. Dosis pendientes del dashboard
+GET {{host}}/api/dashboard/1/dosis-pendientes
+Authorization: Bearer {{token}}
+
+### 34. Notificaciones del cuidador
+GET {{host}}/api/notificaciones/usuario/3
+Authorization: Bearer {{token}}
+
+### 35. Marcar notificación como leída
+PATCH {{host}}/api/notificaciones/1/leida
+Authorization: Bearer {{token}}
+
+### 36. Generar reporte
+# @name crearReporte
+POST {{host}}/api/reportes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "id_usuario": 1,
+  "fecha_inicio": "2026-10-20",
+  "fecha_fin": "2026-10-27"
+}
+
+### 37. Obtener reporte
+GET {{host}}/api/reportes/1
+Authorization: Bearer {{token}}
+
+### 38. Estadísticas del reporte
+GET {{host}}/api/reportes/1/estadisticas
+Authorization: Bearer {{token}}
+
+### 39. Cumplimiento del reporte
+GET {{host}}/api/reportes/1/cumplimiento
+Authorization: Bearer {{token}}
+
+### 40. Compartir reporte
+POST {{host}}/api/reportes/compartir
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "id_reporte": 1,
+  "correo_destino": "cuidador@saludtime.com"
+}
+
+### 41. Cuidadores del paciente
+GET {{host}}/api/cuidadores/paciente/1
+Authorization: Bearer {{token}}
+
+### 42. Crear cuidador
+POST {{host}}/api/cuidadores
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "id_paciente": 1,
+  "correo_cuidador": "cuidador@saludtime.com",
+  "parentesco": "Hija"
+}
+
+### 43. Registros de dosis
+GET {{host}}/api/registros?id_paciente=1
+Authorization: Bearer {{token}}
+
+### 44. Ruta inexistente (espera 404)
+GET {{host}}/api/ruta-inexistente

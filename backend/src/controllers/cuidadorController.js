@@ -1,93 +1,110 @@
+const { Router } = require('express');
+const asyncHandler = require('../middlewares/asyncHandler');
+const validarId = require('../middlewares/validarId');
 const { Usuario, CuidadorPaciente, Rol, UsuarioRol } = require('../models');
-const CrearCuidadorDTO      = require('../dtos/cuidador/CrearCuidadorDTO');
+const CrearCuidadorDTO = require('../dtos/cuidador/CrearCuidadorDTO');
 const ActualizarCuidadorDTO = require('../dtos/cuidador/ActualizarCuidadorDTO');
-const CuidadorResponseDTO   = require('../dtos/cuidador/CuidadorResponseDTO');
-const { ok, created, error } = require('../views/response');
+const CuidadorResponseDTO = require('../dtos/cuidador/CuidadorResponseDTO');
+const { ok, created } = require('../views/response');
+const { BusinessError, ConflictError, NotFoundError } = require('../errors/AppError');
+const enTransaccion = require('../utils/transaccion');
 
-exports.listarPorPaciente = async (req, res) => {
-  try {
-    const cuidadores = await CuidadorPaciente.findAll({
-      where: { id_paciente: req.params.id_paciente, estado: true }
-    });
-    return ok(res, CuidadorResponseDTO.fromList(cuidadores));
-  } catch (e) {
-    return error(res, 500, 'Error al listar cuidadores', e.message);
-  }
+const router = Router();
+const r = (handler) => asyncHandler(handler);
+
+// ==========================================
+// Orquestación y validación HTTP
+// ==========================================
+
+const listarPorPaciente = async (req, res) => {
+  const cuidadores = await CuidadorPaciente.findAll({
+    where: { id_paciente: req.params.id_paciente, estado: true }
+  });
+  return ok(res, CuidadorResponseDTO.fromList(cuidadores));
 };
 
-exports.crear = async (req, res) => {
-  try {
-    const dto = new CrearCuidadorDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+const crear = async (req, res) => {
+  // DTO de entrada: verifica formato JSON
+  const dto = CrearCuidadorDTO.from(req.body);
 
-    const paciente = await Usuario.findByPk(dto.id_paciente);
-    if (!paciente) return error(res, 404, 'Paciente no encontrado');
+  const paciente = await Usuario.findByPk(dto.id_paciente);
+  if (!paciente) throw new NotFoundError('Paciente no encontrado');
 
-    const cuidadorUsuario = await Usuario.findOne({ where: { correo: dto.correo_cuidador } });
-    if (!cuidadorUsuario) return error(res, 404, 'El cuidador debe estar registrado como usuario');
+  const cuidadorUsuario = await Usuario.findOne({ where: { correo: dto.correo_cuidador } });
+  if (!cuidadorUsuario) throw new NotFoundError('El cuidador debe estar registrado como usuario');
 
-    if (cuidadorUsuario.id_usuario === paciente.id_usuario)
-      return error(res, 400, 'El cuidador no puede ser el mismo paciente');
+  if (cuidadorUsuario.id_usuario === paciente.id_usuario) {
+    throw new BusinessError('El cuidador no puede ser el mismo paciente');
+  }
 
-    const existe = await CuidadorPaciente.findOne({
-      where: { id_paciente: dto.id_paciente, id_cuidador: cuidadorUsuario.id_usuario }
-    });
-    if (existe) return error(res, 409, 'Ya existe esa relación');
+  const existe = await CuidadorPaciente.findOne({
+    where: { id_paciente: dto.id_paciente, id_cuidador: cuidadorUsuario.id_usuario }
+  });
+  if (existe) throw new ConflictError('Ya existe esa relación');
 
-    const relacion = await CuidadorPaciente.create({
+  const relacion = await enTransaccion(async (transaction) => {
+    const creada = await CuidadorPaciente.create({
       id_paciente: dto.id_paciente,
       id_cuidador: cuidadorUsuario.id_usuario,
       parentesco: dto.parentesco,
       estado: true
-    });
+    }, { transaction });
 
-    const rolCuidador = await Rol.findOne({ where: { nombre: 'CUIDADOR' } });
+    const rolCuidador = await Rol.findOne({ where: { nombre: 'CUIDADOR' }, transaction });
     if (rolCuidador) {
       const yaTiene = await UsuarioRol.findOne({
-        where: { id_usuario: cuidadorUsuario.id_usuario, id_rol: rolCuidador.id_rol }
+        where: { id_usuario: cuidadorUsuario.id_usuario, id_rol: rolCuidador.id_rol },
+        transaction
       });
       if (!yaTiene) {
         await UsuarioRol.create({
           id_usuario: cuidadorUsuario.id_usuario,
           id_rol: rolCuidador.id_rol
-        });
+        }, { transaction });
       }
     }
 
-    return created(res, new CuidadorResponseDTO(relacion), 'Cuidador registrado');
-  } catch (e) {
-    return error(res, 500, 'Error al registrar cuidador', e.message);
-  }
+    return creada;
+  });
+
+  // DTO de salida: verifica JSON
+  return created(res, new CuidadorResponseDTO(relacion), 'Cuidador registrado');
 };
 
-exports.actualizar = async (req, res) => {
-  try {
-    const rel = await CuidadorPaciente.findByPk(req.params.id);
-    if (!rel) return error(res, 404, 'Relación no encontrada');
+const actualizar = async (req, res) => {
+  const relacion = await CuidadorPaciente.findByPk(req.params.id);
+  if (!relacion) throw new NotFoundError('Relación no encontrada');
 
-    const dto = new ActualizarCuidadorDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+  // DTO de entrada: verifica formato JSON
+  const dto = ActualizarCuidadorDTO.from(req.body);
 
-    await rel.update({
-      parentesco: dto.parentesco ?? rel.parentesco,
-      estado:     dto.estado     ?? rel.estado
-    });
+  await relacion.update({
+    parentesco: dto.parentesco ?? relacion.parentesco,
+    estado: dto.estado ?? relacion.estado
+  });
 
-    return ok(res, new CuidadorResponseDTO(rel), 'Cuidador actualizado');
-  } catch (e) {
-    return error(res, 500, 'Error al actualizar cuidador', e.message);
-  }
+  // DTO de salida: verifica JSON
+  return ok(res, new CuidadorResponseDTO(relacion), 'Cuidador actualizado');
 };
 
-exports.eliminar = async (req, res) => {
-  try {
-    const rel = await CuidadorPaciente.findByPk(req.params.id);
-    if (!rel) return error(res, 404, 'Relación no encontrada');
-    await rel.destroy();
-    return ok(res, null, 'Cuidador eliminado');
-  } catch (e) {
-    return error(res, 500, 'Error al eliminar cuidador', e.message);
-  }
+const eliminar = async (req, res) => {
+  const relacion = await CuidadorPaciente.findByPk(req.params.id);
+  if (!relacion) throw new NotFoundError('Relación no encontrada');
+
+  await relacion.destroy();
+  return ok(res, null, 'Cuidador eliminado');
 };
+
+// ==========================================
+// Endpoints definidos en el Controller
+// ==========================================
+router.get('/paciente/:id_paciente', validarId('id_paciente'), r(listarPorPaciente));
+router.post('/', r(crear));
+router.put('/:id', validarId(), r(actualizar));
+router.delete('/:id', validarId(), r(eliminar));
+
+module.exports = router;
+module.exports.listarPorPaciente = listarPorPaciente;
+module.exports.crear = crear;
+module.exports.actualizar = actualizar;
+module.exports.eliminar = eliminar;

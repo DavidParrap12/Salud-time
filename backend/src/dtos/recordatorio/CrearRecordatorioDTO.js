@@ -1,26 +1,25 @@
-class CrearRecordatorioDTO {
+const BaseDTO = require('../BaseDTO');
+const {
+  crearRecordatorioCondiciones,
+  crearRecordatorioReglaCruzada
+} = require('../../validaciones');
+
+class CrearRecordatorioDTO extends BaseDTO {
   constructor(data = {}) {
-    const { id_tratamiento, hora, dias_semana, fecha_inicio, fecha_fin } = data;
-    this.id_tratamiento = Number(id_tratamiento);
-    this.hora           = hora?.trim();
-    this.dias_semana    = dias_semana?.trim();
-    this.fecha_inicio   = fecha_inicio;
-    this.fecha_fin      = fecha_fin || null;
+    super();
+    this.id_tratamiento = BaseDTO.entero(data.id_tratamiento);
+    this.hora = BaseDTO.texto(data.hora);
+    this.dias_semana = BaseDTO.texto(data.dias_semana);
+    this.fecha_inicio = data.fecha_inicio;
+    this.fecha_fin = data.fecha_fin || null;
   }
 
-  validar() {
-    const errores = [];
-    if (!this.id_tratamiento || isNaN(this.id_tratamiento))
-      errores.push('El tratamiento es obligatorio');
-    if (!this.hora || !/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(this.hora))
-      errores.push('La hora no tiene un formato válido (HH:MM)');
-    if (!this.dias_semana)
-      errores.push('Los días de la semana son obligatorios');
-    if (!this.fecha_inicio)
-      errores.push('La fecha de inicio es obligatoria');
-    if (this.fecha_inicio && this.fecha_fin && new Date(this.fecha_fin) < new Date(this.fecha_inicio))
-      errores.push('La fecha de fin no puede ser anterior a la de inicio');
-    return errores;
+  static rules() {
+    return crearRecordatorioCondiciones;
+  }
+
+  validarReglasCruzadas() {
+    return crearRecordatorioReglaCruzada(this);
   }
 }
 

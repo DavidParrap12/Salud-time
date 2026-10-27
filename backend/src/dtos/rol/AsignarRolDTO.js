@@ -1,13 +1,15 @@
-class AsignarRolDTO {
-  constructor({ id_rol, id_especializacion }) {
-    this.id_rol             = Number(id_rol);
-    this.id_especializacion = id_especializacion ? Number(id_especializacion) : null;
+const BaseDTO = require('../BaseDTO');
+const { asignarRolCondiciones } = require('../../validaciones');
+
+class AsignarRolDTO extends BaseDTO {
+  constructor(data = {}) {
+    super();
+    this.id_rol = BaseDTO.entero(data.id_rol);
+    this.id_especializacion = BaseDTO.entero(data.id_especializacion);
   }
 
-  validar() {
-    const errores = [];
-    if (!this.id_rol || isNaN(this.id_rol)) errores.push('El id_rol es obligatorio');
-    return errores;
+  static rules() {
+    return asignarRolCondiciones;
   }
 }
 

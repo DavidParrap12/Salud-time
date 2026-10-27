@@ -1,97 +1,101 @@
+const { Router } = require('express');
+const asyncHandler = require('../middlewares/asyncHandler');
+const validarId = require('../middlewares/validarId');
 const { Medicamento } = require('../models');
-const CrearMedicamentoDTO      = require('../dtos/medicamento/CrearMedicamentoDTO');
+const CrearMedicamentoDTO = require('../dtos/medicamento/CrearMedicamentoDTO');
 const ActualizarMedicamentoDTO = require('../dtos/medicamento/ActualizarMedicamentoDTO');
-const MedicamentoResponseDTO   = require('../dtos/medicamento/MedicamentoResponseDTO');
-const { ok, created, error }   = require('../views/response');
+const MedicamentoResponseDTO = require('../dtos/medicamento/MedicamentoResponseDTO');
+const MedicamentoVencimientoResponseDTO = require('../dtos/medicamento/MedicamentoVencimientoResponseDTO');
+const { ok, created } = require('../views/response');
+const { NotFoundError } = require('../errors/AppError');
 
-exports.listar = async (req, res) => {
-  try {
-    const medicamentos = await Medicamento.findAll({ where: { estado: true } });
-    return ok(res, MedicamentoResponseDTO.fromList(medicamentos));
-  } catch (e) {
-    return error(res, 500, 'Error al listar medicamentos', e.message);
-  }
+const router = Router();
+const r = (handler) => asyncHandler(handler);
+
+// ==========================================
+// Orquestación y validación HTTP
+// ==========================================
+
+const listar = async (req, res) => {
+  const medicamentos = await Medicamento.findAll({ where: { estado: true } });
+  return ok(res, MedicamentoResponseDTO.fromList(medicamentos));
 };
 
-exports.obtener = async (req, res) => {
-  try {
-    const med = await Medicamento.findByPk(req.params.id);
-    if (!med) return error(res, 404, 'Medicamento no encontrado');
-    return ok(res, new MedicamentoResponseDTO(med));
-  } catch (e) {
-    return error(res, 500, 'Error al obtener medicamento', e.message);
-  }
+const obtener = async (req, res) => {
+  const medicamento = await Medicamento.findByPk(req.params.id);
+  if (!medicamento) throw new NotFoundError('Medicamento no encontrado');
+  return ok(res, new MedicamentoResponseDTO(medicamento));
 };
 
-exports.crear = async (req, res) => {
-  try {
-    const dto = new CrearMedicamentoDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+const crear = async (req, res) => {
+  // DTO de entrada: verifica formato JSON del cuerpo
+  const dto = CrearMedicamentoDTO.from(req.body);
 
-    const med = await Medicamento.create({
-      nombre:            dto.nombre,
-      presentacion:      dto.presentacion,
-      descripcion:       dto.descripcion,
-      fecha_vencimiento: dto.fecha_vencimiento
-    });
+  const medicamento = await Medicamento.create({
+    nombre: dto.nombre,
+    presentacion: dto.presentacion,
+    descripcion: dto.descripcion,
+    fecha_vencimiento: dto.fecha_vencimiento
+  });
 
-    return created(res, new MedicamentoResponseDTO(med), 'Medicamento registrado');
-  } catch (e) {
-    return error(res, 500, 'Error al crear medicamento', e.message);
-  }
+  // DTO de salida: verifica y da formato al JSON
+  return created(res, new MedicamentoResponseDTO(medicamento), 'Medicamento registrado');
 };
 
-exports.actualizar = async (req, res) => {
-  try {
-    const med = await Medicamento.findByPk(req.params.id);
-    if (!med) return error(res, 404, 'Medicamento no encontrado');
+const actualizar = async (req, res) => {
+  const medicamento = await Medicamento.findByPk(req.params.id);
+  if (!medicamento) throw new NotFoundError('Medicamento no encontrado');
 
-    const dto = new ActualizarMedicamentoDTO(req.body || {});
-    const errores = dto.validar();
-    if (errores.length) return error(res, 400, 'Datos inválidos', errores);
+  // DTO de entrada: verifica formato JSON
+  const dto = ActualizarMedicamentoDTO.from(req.body);
 
-    await med.update({
-      nombre:            dto.nombre            ?? med.nombre,
-      presentacion:      dto.presentacion      ?? med.presentacion,
-      descripcion:       dto.descripcion       ?? med.descripcion,
-      fecha_vencimiento: dto.fecha_vencimiento ?? med.fecha_vencimiento,
-      estado:            dto.estado            ?? med.estado
-    });
+  await medicamento.update({
+    nombre: dto.nombre ?? medicamento.nombre,
+    presentacion: dto.presentacion ?? medicamento.presentacion,
+    descripcion: dto.descripcion ?? medicamento.descripcion,
+    fecha_vencimiento: dto.fecha_vencimiento ?? medicamento.fecha_vencimiento,
+    estado: dto.estado ?? medicamento.estado
+  });
 
-    return ok(res, new MedicamentoResponseDTO(med), 'Medicamento actualizado');
-  } catch (e) {
-    return error(res, 500, 'Error al actualizar medicamento', e.message);
-  }
+  // DTO de salida: verifica y limpia JSON
+  return ok(res, new MedicamentoResponseDTO(medicamento), 'Medicamento actualizado');
 };
 
-exports.eliminar = async (req, res) => {
-  try {
-    const med = await Medicamento.findByPk(req.params.id);
-    if (!med) return error(res, 404, 'Medicamento no encontrado');
-    await med.update({ estado: false });
-    return ok(res, null, 'Medicamento desactivado');
-  } catch (e) {
-    return error(res, 500, 'Error al eliminar medicamento', e.message);
-  }
+const eliminar = async (req, res) => {
+  const medicamento = await Medicamento.findByPk(req.params.id);
+  if (!medicamento) throw new NotFoundError('Medicamento no encontrado');
+
+  await medicamento.update({ estado: false });
+  return ok(res, null, 'Medicamento desactivado');
 };
 
-exports.validar = async (req, res) => {
-  try {
-    const dto = new CrearMedicamentoDTO(req.body || {});
-    const errores = dto.validar();
-    return ok(res, { valido: errores.length === 0, errores });
-  } catch (e) {
-    return error(res, 500, 'Error al validar', e.message);
-  }
+const validar = async (req, res) => {
+  // Verifica formato JSON con DTO sin lanzar excepción
+  return ok(res, CrearMedicamentoDTO.validarDatos(req.body));
 };
 
-exports.vencimiento = async (req, res) => {
-  try {
-    const med = await Medicamento.findByPk(req.params.id);
-    if (!med) return error(res, 404, 'Medicamento no encontrado');
-    return ok(res, { fecha_vencimiento: med.fecha_vencimiento });
-  } catch (e) {
-    return error(res, 500, 'Error al consultar vencimiento', e.message);
-  }
+const vencimiento = async (req, res) => {
+  const medicamento = await Medicamento.findByPk(req.params.id);
+  if (!medicamento) throw new NotFoundError('Medicamento no encontrado');
+  return ok(res, new MedicamentoVencimientoResponseDTO(medicamento));
 };
+
+// ==========================================
+// Endpoints definidos en el Controller
+// ==========================================
+router.get('/', r(listar));
+router.post('/', r(crear));
+router.post('/validar', r(validar));
+router.get('/:id/vencimiento', validarId(), r(vencimiento));
+router.get('/:id', validarId(), r(obtener));
+router.put('/:id', validarId(), r(actualizar));
+router.delete('/:id', validarId(), r(eliminar));
+
+module.exports = router;
+module.exports.listar = listar;
+module.exports.obtener = obtener;
+module.exports.crear = crear;
+module.exports.actualizar = actualizar;
+module.exports.eliminar = eliminar;
+module.exports.validar = validar;
+module.exports.vencimiento = vencimiento;

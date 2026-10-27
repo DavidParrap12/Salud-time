@@ -1,16 +1,14 @@
-class MedicamentoResponseDTO {
-  constructor(m) {
-    this.id_medicamento    = m.id_medicamento;
-    this.nombre            = m.nombre;
-    this.presentacion      = m.presentacion;
-    this.descripcion       = m.descripcion;
-    this.fecha_vencimiento = m.fecha_vencimiento;
-    this.estado            = m.estado;
-  }
+const BaseResponseDTO = require('../BaseResponseDTO');
 
-  static fromList(lista) {
-    return lista.map(m => new MedicamentoResponseDTO(m));
-  }
+class MedicamentoResponseDTO extends BaseResponseDTO {
+  static fields = [
+    'id_medicamento',
+    'nombre',
+    'presentacion',
+    'descripcion',
+    'fecha_vencimiento',
+    'estado'
+  ];
 }
 
 module.exports = MedicamentoResponseDTO;

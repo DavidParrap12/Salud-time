@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const asyncHandler = require('../middlewares/asyncHandler');
+const endpoint = require('../http/endpoint');
 const validarId = require('../middlewares/validarId');
 const { Usuario, CuidadorPaciente, Rol, UsuarioRol } = require('../models');
 const CrearCuidadorDTO = require('../dtos/cuidador/CrearCuidadorDTO');
@@ -10,23 +10,19 @@ const { BusinessError, ConflictError, NotFoundError } = require('../errors/AppEr
 const enTransaccion = require('../utils/transaccion');
 
 const router = Router();
-const r = (handler) => asyncHandler(handler);
 
 // ==========================================
-// Orquestación y validación HTTP
+// Orquestación de los casos de uso
 // ==========================================
 
-const listarPorPaciente = async (req, res) => {
+const listarPorPaciente = async ({ params }) => {
   const cuidadores = await CuidadorPaciente.findAll({
-    where: { id_paciente: req.params.id_paciente, estado: true }
+    where: { id_paciente: params.id_paciente, estado: true }
   });
-  return ok(res, CuidadorResponseDTO.fromList(cuidadores));
+  return ok(CuidadorResponseDTO.fromList(cuidadores));
 };
 
-const crear = async (req, res) => {
-  // DTO de entrada: verifica formato JSON
-  const dto = CrearCuidadorDTO.from(req.body);
-
+const crear = async ({ body: dto }) => {
   const paciente = await Usuario.findByPk(dto.id_paciente);
   if (!paciente) throw new NotFoundError('Paciente no encontrado');
 
@@ -67,41 +63,36 @@ const crear = async (req, res) => {
     return creada;
   });
 
-  // DTO de salida: verifica JSON
-  return created(res, new CuidadorResponseDTO(relacion), 'Cuidador registrado');
+  return created(new CuidadorResponseDTO(relacion), 'Cuidador registrado');
 };
 
-const actualizar = async (req, res) => {
-  const relacion = await CuidadorPaciente.findByPk(req.params.id);
+const actualizar = async ({ body: dto, params }) => {
+  const relacion = await CuidadorPaciente.findByPk(params.id);
   if (!relacion) throw new NotFoundError('Relación no encontrada');
-
-  // DTO de entrada: verifica formato JSON
-  const dto = ActualizarCuidadorDTO.from(req.body);
 
   await relacion.update({
     parentesco: dto.parentesco ?? relacion.parentesco,
     estado: dto.estado ?? relacion.estado
   });
 
-  // DTO de salida: verifica JSON
-  return ok(res, new CuidadorResponseDTO(relacion), 'Cuidador actualizado');
+  return ok(new CuidadorResponseDTO(relacion), 'Cuidador actualizado');
 };
 
-const eliminar = async (req, res) => {
-  const relacion = await CuidadorPaciente.findByPk(req.params.id);
+const eliminar = async ({ params }) => {
+  const relacion = await CuidadorPaciente.findByPk(params.id);
   if (!relacion) throw new NotFoundError('Relación no encontrada');
 
   await relacion.destroy();
-  return ok(res, null, 'Cuidador eliminado');
+  return ok(null, 'Cuidador eliminado');
 };
 
 // ==========================================
 // Endpoints definidos en el Controller
 // ==========================================
-router.get('/paciente/:id_paciente', validarId('id_paciente'), r(listarPorPaciente));
-router.post('/', r(crear));
-router.put('/:id', validarId(), r(actualizar));
-router.delete('/:id', validarId(), r(eliminar));
+router.get('/paciente/:id_paciente', validarId('id_paciente'), endpoint(listarPorPaciente));
+router.post('/', endpoint(crear, { body: CrearCuidadorDTO }));
+router.put('/:id', validarId(), endpoint(actualizar, { body: ActualizarCuidadorDTO }));
+router.delete('/:id', validarId(), endpoint(eliminar));
 
 module.exports = router;
 module.exports.listarPorPaciente = listarPorPaciente;

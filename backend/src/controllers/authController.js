@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const asyncHandler = require('../middlewares/asyncHandler');
+const endpoint = require('../http/endpoint');
 const { Usuario, Rol, UsuarioRol, Especializacion, MedicoEspecializacion } = require('../models');
 const RegistroPacienteDTO = require('../dtos/auth/RegistroPacienteDTO');
 const RegistroEspecialistaDTO = require('../dtos/auth/RegistroEspecialistaDTO');
@@ -14,16 +14,12 @@ const { ConflictError, NotFoundError, UnauthorizedError } = require('../errors/A
 const enTransaccion = require('../utils/transaccion');
 
 const router = Router();
-const r = (handler) => asyncHandler(handler);
 
 // ==========================================
-// Orquestadores de peticiones HTTP
+// Orquestación de los casos de uso
 // ==========================================
 
-const registrarPaciente = async (req, res) => {
-  // DTO de entrada: verifica formato JSON
-  const dto = RegistroPacienteDTO.from(req.body);
-
+const registrarPaciente = async ({ body: dto }) => {
   const existe = await Usuario.findOne({ where: { correo: dto.correo } });
   if (existe) throw new ConflictError('El correo ya está registrado');
 
@@ -51,14 +47,10 @@ const registrarPaciente = async (req, res) => {
     return creado;
   });
 
-  // DTO de salida: verifica y limpia JSON de salida
-  return created(res, new UsuarioResponseDTO(usuario), 'Paciente registrado');
+  return created(new UsuarioResponseDTO(usuario), 'Paciente registrado');
 };
 
-const registrarEspecialista = async (req, res) => {
-  // DTO de entrada: verifica formato JSON
-  const dto = RegistroEspecialistaDTO.from(req.body);
-
+const registrarEspecialista = async ({ body: dto }) => {
   const existe = await Usuario.findOne({ where: { correo: dto.correo } });
   if (existe) throw new ConflictError('El correo ya está registrado');
 
@@ -94,14 +86,10 @@ const registrarEspecialista = async (req, res) => {
     return creado;
   });
 
-  // DTO de salida: verifica y limpia JSON de salida
-  return created(res, new UsuarioResponseDTO(usuario), 'Especialista registrado');
+  return created(new UsuarioResponseDTO(usuario), 'Especialista registrado');
 };
 
-const login = async (req, res) => {
-  // DTO de entrada: verifica formato JSON
-  const dto = LoginDTO.from(req.body);
-
+const login = async ({ body: dto }) => {
   const usuario = await Usuario.findOne({
     where: { correo: dto.correo },
     include: [{ model: Rol, as: 'roles' }]
@@ -120,9 +108,7 @@ const login = async (req, res) => {
     { expiresIn: '8h' }
   );
 
-  // DTO de salida: verifica y estructura JSON de salida
   return ok(
-    res,
     new LoginResponseDTO({
       token,
       usuario: new UsuarioResponseDTO(usuario),
@@ -132,23 +118,21 @@ const login = async (req, res) => {
   );
 };
 
-const recuperarPassword = async (req, res) => {
-  // DTO de entrada: verifica formato JSON
-  const dto = RecuperarPasswordDTO.from(req.body);
-
+const recuperarPassword = async ({ body: dto }) => {
   const usuario = await Usuario.findOne({ where: { correo: dto.correo } });
   if (!usuario) throw new NotFoundError('Correo no registrado');
 
-  return ok(res, null, 'Se envió un enlace de recuperación al correo');
+  // Aquí se generaría un token temporal y se enviaría por correo.
+  return ok(null, 'Se envió un enlace de recuperación al correo');
 };
 
 // ==========================================
 // Endpoints definidos en el Controller
 // ==========================================
-router.post('/registro/paciente', r(registrarPaciente));
-router.post('/registro/especialista', r(registrarEspecialista));
-router.post('/login', r(login));
-router.post('/recuperar-password', r(recuperarPassword));
+router.post('/registro/paciente', endpoint(registrarPaciente, { body: RegistroPacienteDTO }));
+router.post('/registro/especialista', endpoint(registrarEspecialista, { body: RegistroEspecialistaDTO }));
+router.post('/login', endpoint(login, { body: LoginDTO }));
+router.post('/recuperar-password', endpoint(recuperarPassword, { body: RecuperarPasswordDTO }));
 
 module.exports = router;
 module.exports.registrarPaciente = registrarPaciente;

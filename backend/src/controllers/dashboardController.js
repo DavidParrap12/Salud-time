@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const asyncHandler = require('../middlewares/asyncHandler');
+const endpoint = require('../http/endpoint');
 const validarId = require('../middlewares/validarId');
 const { Op } = require('sequelize');
 const { Tratamiento, Recordatorio, DosisProgramada, Usuario } = require('../models');
@@ -11,7 +11,6 @@ const { NotFoundError } = require('../errors/AppError');
 const { rangoDelDia } = require('../utils/fechas');
 
 const router = Router();
-const r = (handler) => asyncHandler(handler);
 
 const dosisDelDia = async (idUsuario) => {
   const { inicio, fin } = rangoDelDia();
@@ -33,16 +32,14 @@ const dosisDelDia = async (idUsuario) => {
 };
 
 // ==========================================
-// Orquestación y validación HTTP
+// Orquestación de los casos de uso
 // ==========================================
 
-const obtener = async (req, res) => {
-  const idUsuario = req.params.id_usuario;
-
-  const usuario = await Usuario.findByPk(idUsuario);
+const obtener = async ({ params }) => {
+  const usuario = await Usuario.findByPk(params.id_usuario);
   if (!usuario) throw new NotFoundError('Usuario no encontrado');
 
-  const dosisHoy = await dosisDelDia(idUsuario);
+  const dosisHoy = await dosisDelDia(params.id_usuario);
 
   const resumen = {
     total_hoy: dosisHoy.length,
@@ -51,8 +48,7 @@ const obtener = async (req, res) => {
     omitidas_hoy: dosisHoy.filter((d) => d.estado === 'OMITIDA').length
   };
 
-  // DTO de salida: verifica y da formato JSON
-  return ok(res, new DashboardResponseDTO({
+  return ok(new DashboardResponseDTO({
     usuario: new UsuarioResponseDTO(usuario),
     medicamentosHoy: DosisProgramadaResponseDTO.fromList(dosisHoy),
     dosisPendientes: DosisProgramadaResponseDTO.fromList(
@@ -62,12 +58,12 @@ const obtener = async (req, res) => {
   }));
 };
 
-const medicamentosHoy = async (req, res) => {
-  const dosisHoy = await dosisDelDia(req.params.id_usuario);
-  return ok(res, DosisProgramadaResponseDTO.fromList(dosisHoy));
+const medicamentosHoy = async ({ params }) => {
+  const dosisHoy = await dosisDelDia(params.id_usuario);
+  return ok(DosisProgramadaResponseDTO.fromList(dosisHoy));
 };
 
-const dosisPendientes = async (req, res) => {
+const dosisPendientes = async ({ params }) => {
   const dosis = await DosisProgramada.findAll({
     where: { estado: 'PENDIENTE' },
     include: [{
@@ -77,21 +73,21 @@ const dosisPendientes = async (req, res) => {
       include: [{
         model: Tratamiento,
         as: 'tratamiento',
-        where: { id_paciente: req.params.id_usuario, estado: true },
+        where: { id_paciente: params.id_usuario, estado: true },
         required: true
       }]
     }]
   });
 
-  return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
+  return ok(DosisProgramadaResponseDTO.fromList(dosis));
 };
 
 // ==========================================
 // Endpoints definidos en el Controller
 // ==========================================
-router.get('/:id_usuario/medicamentos-hoy', validarId('id_usuario'), r(medicamentosHoy));
-router.get('/:id_usuario/dosis-pendientes', validarId('id_usuario'), r(dosisPendientes));
-router.get('/:id_usuario', validarId('id_usuario'), r(obtener));
+router.get('/:id_usuario/medicamentos-hoy', validarId('id_usuario'), endpoint(medicamentosHoy));
+router.get('/:id_usuario/dosis-pendientes', validarId('id_usuario'), endpoint(dosisPendientes));
+router.get('/:id_usuario', validarId('id_usuario'), endpoint(obtener));
 
 module.exports = router;
 module.exports.obtener = obtener;

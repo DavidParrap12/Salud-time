@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const asyncHandler = require('../middlewares/asyncHandler');
+const endpoint = require('../http/endpoint');
 const validarId = require('../middlewares/validarId');
 const { Tratamiento, Recordatorio, DosisProgramada, Usuario, Reporte } = require('../models');
 const { Op } = require('sequelize');
@@ -14,7 +14,6 @@ const { NotFoundError } = require('../errors/AppError');
 const { aFechaLocal } = require('../utils/fechas');
 
 const router = Router();
-const r = (handler) => asyncHandler(handler);
 
 const buscarReporte = async (id) => {
   const reporte = await Reporte.findByPk(id);
@@ -26,13 +25,10 @@ const porcentaje = (parte, total) =>
   total > 0 ? Number(((parte / total) * 100).toFixed(2)) : 0;
 
 // ==========================================
-// Orquestación y validación HTTP
+// Orquestación de los casos de uso
 // ==========================================
 
-const generar = async (req, res) => {
-  // DTO de entrada: verifica formato JSON
-  const dto = CrearReporteDTO.from(req.body);
-
+const generar = async ({ body: dto }) => {
   const usuario = await Usuario.findByPk(dto.id_usuario);
   if (!usuario) throw new NotFoundError('Usuario no encontrado');
 
@@ -78,20 +74,19 @@ const generar = async (req, res) => {
     adherencia: porcentaje(tomadas, total)
   });
 
-  // DTO de salida: verifica y limpia JSON
-  return created(res, new ReporteResponseDTO(reporte), 'Reporte generado');
+  return created(new ReporteResponseDTO(reporte), 'Reporte generado');
 };
 
-const obtener = async (req, res) => {
-  const reporte = await buscarReporte(req.params.id);
-  return ok(res, new ReporteResponseDTO(reporte));
+const obtener = async ({ params }) => {
+  const reporte = await buscarReporte(params.id);
+  return ok(new ReporteResponseDTO(reporte));
 };
 
-const estadisticas = async (req, res) => {
-  const reporte = await buscarReporte(req.params.id);
+const estadisticas = async ({ params }) => {
+  const reporte = await buscarReporte(params.id);
   const pendientes = Math.max(reporte.total - reporte.tomadas - reporte.omitidas, 0);
 
-  return ok(res, new ReporteEstadisticasResponseDTO({
+  return ok(new ReporteEstadisticasResponseDTO({
     reporte: new ReporteResponseDTO(reporte),
     pendientes,
     porcentaje_tomadas: porcentaje(reporte.tomadas, reporte.total),
@@ -99,8 +94,8 @@ const estadisticas = async (req, res) => {
   }));
 };
 
-const cumplimiento = async (req, res) => {
-  const reporte = await buscarReporte(req.params.id);
+const cumplimiento = async ({ params }) => {
+  const reporte = await buscarReporte(params.id);
 
   let nivel = 'BAJA';
   let mensaje = 'La adherencia es baja; se recomienda seguimiento.';
@@ -112,7 +107,7 @@ const cumplimiento = async (req, res) => {
     mensaje = 'Adherencia aceptable; hay dosis por mejorar.';
   }
 
-  return ok(res, new CumplimientoResponseDTO({
+  return ok(new CumplimientoResponseDTO({
     id_reporte: reporte.id_reporte,
     adherencia: reporte.adherencia,
     nivel,
@@ -120,12 +115,10 @@ const cumplimiento = async (req, res) => {
   }));
 };
 
-const compartir = async (req, res) => {
-  // DTO de entrada: verifica formato JSON
-  const dto = CompartirReporteDTO.from(req.body);
+const compartir = async ({ body: dto }) => {
   const reporte = await buscarReporte(dto.id_reporte);
 
-  return ok(res, new CompartirReporteResponseDTO({
+  return ok(new CompartirReporteResponseDTO({
     id_reporte: reporte.id_reporte,
     correo_destino: dto.correo_destino,
     enviado: true
@@ -135,11 +128,11 @@ const compartir = async (req, res) => {
 // ==========================================
 // Endpoints definidos en el Controller
 // ==========================================
-router.post('/compartir', r(compartir));
-router.post('/', r(generar));
-router.get('/:id/estadisticas', validarId(), r(estadisticas));
-router.get('/:id/cumplimiento', validarId(), r(cumplimiento));
-router.get('/:id', validarId(), r(obtener));
+router.post('/compartir', endpoint(compartir, { body: CompartirReporteDTO }));
+router.post('/', endpoint(generar, { body: CrearReporteDTO }));
+router.get('/:id/estadisticas', validarId(), endpoint(estadisticas));
+router.get('/:id/cumplimiento', validarId(), endpoint(cumplimiento));
+router.get('/:id', validarId(), endpoint(obtener));
 
 module.exports = router;
 module.exports.generar = generar;

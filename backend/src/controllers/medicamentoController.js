@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const asyncHandler = require('../middlewares/asyncHandler');
+const endpoint = require('../http/endpoint');
 const validarId = require('../middlewares/validarId');
 const { Medicamento } = require('../models');
 const CrearMedicamentoDTO = require('../dtos/medicamento/CrearMedicamentoDTO');
@@ -10,27 +10,23 @@ const { ok, created } = require('../views/response');
 const { NotFoundError } = require('../errors/AppError');
 
 const router = Router();
-const r = (handler) => asyncHandler(handler);
 
 // ==========================================
-// Orquestación y validación HTTP
+// Orquestación de los casos de uso
 // ==========================================
 
-const listar = async (req, res) => {
+const listar = async () => {
   const medicamentos = await Medicamento.findAll({ where: { estado: true } });
-  return ok(res, MedicamentoResponseDTO.fromList(medicamentos));
+  return ok(MedicamentoResponseDTO.fromList(medicamentos));
 };
 
-const obtener = async (req, res) => {
-  const medicamento = await Medicamento.findByPk(req.params.id);
+const obtener = async ({ params }) => {
+  const medicamento = await Medicamento.findByPk(params.id);
   if (!medicamento) throw new NotFoundError('Medicamento no encontrado');
-  return ok(res, new MedicamentoResponseDTO(medicamento));
+  return ok(new MedicamentoResponseDTO(medicamento));
 };
 
-const crear = async (req, res) => {
-  // DTO de entrada: verifica formato JSON del cuerpo
-  const dto = CrearMedicamentoDTO.from(req.body);
-
+const crear = async ({ body: dto }) => {
   const medicamento = await Medicamento.create({
     nombre: dto.nombre,
     presentacion: dto.presentacion,
@@ -38,16 +34,12 @@ const crear = async (req, res) => {
     fecha_vencimiento: dto.fecha_vencimiento
   });
 
-  // DTO de salida: verifica y da formato al JSON
-  return created(res, new MedicamentoResponseDTO(medicamento), 'Medicamento registrado');
+  return created(new MedicamentoResponseDTO(medicamento), 'Medicamento registrado');
 };
 
-const actualizar = async (req, res) => {
-  const medicamento = await Medicamento.findByPk(req.params.id);
+const actualizar = async ({ body: dto, params }) => {
+  const medicamento = await Medicamento.findByPk(params.id);
   if (!medicamento) throw new NotFoundError('Medicamento no encontrado');
-
-  // DTO de entrada: verifica formato JSON
-  const dto = ActualizarMedicamentoDTO.from(req.body);
 
   await medicamento.update({
     nombre: dto.nombre ?? medicamento.nombre,
@@ -57,39 +49,37 @@ const actualizar = async (req, res) => {
     estado: dto.estado ?? medicamento.estado
   });
 
-  // DTO de salida: verifica y limpia JSON
-  return ok(res, new MedicamentoResponseDTO(medicamento), 'Medicamento actualizado');
+  return ok(new MedicamentoResponseDTO(medicamento), 'Medicamento actualizado');
 };
 
-const eliminar = async (req, res) => {
-  const medicamento = await Medicamento.findByPk(req.params.id);
+const eliminar = async ({ params }) => {
+  const medicamento = await Medicamento.findByPk(params.id);
   if (!medicamento) throw new NotFoundError('Medicamento no encontrado');
 
   await medicamento.update({ estado: false });
-  return ok(res, null, 'Medicamento desactivado');
+  return ok(null, 'Medicamento desactivado');
 };
 
-const validar = async (req, res) => {
-  // Verifica formato JSON con DTO sin lanzar excepción
-  return ok(res, CrearMedicamentoDTO.validarDatos(req.body));
+const validar = async ({ body }) => {
+  return ok(CrearMedicamentoDTO.validarDatos(body), 'Validación completada');
 };
 
-const vencimiento = async (req, res) => {
-  const medicamento = await Medicamento.findByPk(req.params.id);
+const vencimiento = async ({ params }) => {
+  const medicamento = await Medicamento.findByPk(params.id);
   if (!medicamento) throw new NotFoundError('Medicamento no encontrado');
-  return ok(res, new MedicamentoVencimientoResponseDTO(medicamento));
+  return ok(new MedicamentoVencimientoResponseDTO(medicamento));
 };
 
 // ==========================================
 // Endpoints definidos en el Controller
 // ==========================================
-router.get('/', r(listar));
-router.post('/', r(crear));
-router.post('/validar', r(validar));
-router.get('/:id/vencimiento', validarId(), r(vencimiento));
-router.get('/:id', validarId(), r(obtener));
-router.put('/:id', validarId(), r(actualizar));
-router.delete('/:id', validarId(), r(eliminar));
+router.get('/', endpoint(listar));
+router.post('/', endpoint(crear, { body: CrearMedicamentoDTO }));
+router.post('/validar', endpoint(validar));
+router.get('/:id/vencimiento', validarId(), endpoint(vencimiento));
+router.get('/:id', validarId(), endpoint(obtener));
+router.put('/:id', validarId(), endpoint(actualizar, { body: ActualizarMedicamentoDTO }));
+router.delete('/:id', validarId(), endpoint(eliminar));
 
 module.exports = router;
 module.exports.listar = listar;

@@ -26,6 +26,17 @@ module.exports = (err, req, res, next) => {
   } else if (err.name === 'SequelizeForeignKeyConstraintError') {
     status = 400;
     mensaje = 'Referencia inválida: el registro relacionado no existe';
+  } else if (
+    [
+      'SequelizeConnectionError',
+      'SequelizeConnectionRefusedError',
+      'SequelizeHostNotFoundError',
+      'SequelizeAccessDeniedError'
+    ].includes(err.name)
+  ) {
+    status = 503;
+    mensaje = 'Sin conexión a la base de datos';
+    detalles = err.message;
   } else {
     console.error('[error]', err);
     detalles = err.message;

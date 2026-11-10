@@ -91,6 +91,32 @@ Todas las peticiones HTTP respondieron como se esperaba.
 Si alguna prueba falla, el script muestra la ruta, el código recibido y el
 cuerpo de la respuesta, y termina con código de salida `1`.
 
+## Verificación de los datos en PostgreSQL
+
+Además de validar el JSON de entrada, los datos se validan antes de guardarse
+y se comprueba la integridad de lo que ya está almacenado:
+
+```powershell
+npm run verify:db
+```
+
+`npm run verify:db` ejecuta `scripts/verificar-bd.js` y realiza **24 controles**:
+
+- Consultas SQL sobre las tablas reales: campos obligatorios no vacíos,
+  correos con formato válido, edades en rango, fechas coherentes, estados
+  permitidos, claves foráneas existentes y registros duplicados.
+- Intentos de escritura con datos inválidos dentro de transacciones que
+  siempre se revierten: correo inválido, edad fuera de rango, nombre vacío,
+  rango de fechas invertido, adherencia mayor a 100 y estado desconocido.
+  Cada intento debe ser rechazado por las validaciones del modelo.
+
+Salida esperada:
+
+```text
+============================================================
+Resultado: 24/24 controles correctos
+```
+
 ## Demostración rápida
 
 Con el servidor corriendo en otra terminal:
@@ -110,65 +136,96 @@ una dosis, genera un reporte y lista las notificaciones del cuidador.
 | Médico   | medico@saludtime.com    | Salud1234  |
 | Cuidador | cuidador@saludtime.com  | Salud1234  |
 
-## Documentación Interactiva (Swagger / Estilo FastAPI)
+## Autenticación y Seguridad con JWT
 
-Al igual que en **FastAPI**, la API cuenta con una interfaz interactiva de documentación y prueba en tiempo real basada en **OpenAPI / Swagger UI**:
+La API protege todas las rutas del sistema consumiendo y validando tokens **JWT (JSON Web Tokens)**:
 
-- **Swagger UI (Interactivo):** [http://localhost:3000/docs](http://localhost:3000/docs) (o `http://localhost:3000/api/docs`)
-- **Especificación OpenAPI (JSON):** `http://localhost:3000/api/openapi.json`
-
-Desde `/docs` es posible:
-- Explorar todos los endpoints agrupados por módulo.
-- Ver los esquemas JSON de los DTOs de entrada y salida.
-- Probar peticiones en vivo directamente desde el navegador ("Try it out").
+1. **Obtención del token:** Al iniciar sesión en `POST /api/auth/login`, la API genera y retorna un token JWT firmado con `JWT_SECRET` que contiene la identidad y los roles del usuario.
+2. **Consumo del token:** Todas las rutas protegidas (`/api/medicamentos`, `/api/tratamientos`, `/api/dosis`, `/api/reportes`, etc.) requieren el encabezado:
+   ```http
+   Authorization: Bearer <su_token_jwt>
+   ```
+3. **Validación automática:**
+   - Si no se envía el token o es inválido/expirado, la API responde de inmediato con `401 Unauthorized`.
+   - Se comprueba en PostgreSQL que el usuario exista y siga activo (`estado: true`).
+   - El adaptador HTTP inyecta el usuario autenticado (`{ usuario }`) en el controlador, manteniendo los controladores 100% libres de `req` y `res`.
 
 Además, la consola del servidor cuenta con un **visualizador de flujo HTTP en tiempo real** (`flowLogger`) que imprime con colores cada petición entrante, parámetros, status HTTP devuelto y tiempo de respuesta en milisegundos.
 
-## Arquitectura Modelo-Vista-Controlador (MVC) y Capas
+## Arquitectura y capas
 
-El backend está organizado separando responsabilidades en carpetas dedicadas:
+El backend separa responsabilidades para que cada archivo tenga una única
+tarea. En particular, **los controllers no reciben `req` ni `res`**.
 
 ```text
 Petición HTTP
    ↓
-controllers/                  ← Endpoints y orquestación del flujo HTTP
+server.js                    ← Monta cada router bajo su prefijo (/api/...)
    ↓
-validaciones/                 ← Condiciones y reglas de validación (formatos, tipos, restricciones)
+src/http/endpoint.js         ← ÚNICO lugar con req/res:
+                                • lee body/query,
+                                • construye y valida los DTOs de entrada,
+                                • llama al controller con { body, params, query },
+                                • escribe la respuesta JSON.
    ↓
-dtos/                         ← Molde y estructura de datos:
-                                • Request DTOs (req): estructuran datos entrantes
-                                • Response DTOs (res): estructuran datos salientes
+controllers/                 ← Endpoints + orquestación de casos de uso
    ↓
-models/                       ← Modelado de la base de datos (PostgreSQL + Sequelize)
+dtos/                        ← Request DTOs (validan la entrada)
+                                Response DTOs (lista blanca de la salida)
    ↓
-views/response.js             ← Formato estandarizado de respuesta HTTP (JSON)
+models/                      ← Sequelize + validaciones antes de escribir en PostgreSQL
+   ↓
+PostgreSQL
 ```
 
-### Distribución de responsabilidades por carpeta:
+### Distribución de responsabilidades
 
-1. **`models/` (Modelado de Base de Datos):**
-   - Contiene la definición de tablas, tipos de columnas, restricciones y asociaciones/relaciones de Sequelize (`belongsToMany`, `hasMany`, `belongsTo`) sobre PostgreSQL.
-   - Ningún modelo valida peticiones HTTP ni conoce formatos de entrada o salida.
+1. **`models/` (persistencia y validación de datos):**
+   - Define tablas, tipos, restricciones y asociaciones de Sequelize.
+   - `models/validaciones.js` centraliza reglas reutilizables: texto requerido,
+     longitudes máximas, referencias enteras positivas, fechas, horas y rangos
+     de fechas coherentes.
+   - Estas validaciones se ejecutan **antes de INSERT/UPDATE**, aunque el dato
+     no venga de la API. Las restricciones `NOT NULL`, `UNIQUE`, claves
+     foráneas e índices siguen aplicándose en PostgreSQL.
 
-2. **`controllers/` (Endpoints y Orquestación HTTP):**
-   - Cada controlador contiene sus propios endpoints (`router.get`, `router.post`, etc.).
-   - Recibe la petición HTTP (`req`), valida parámetros de ruta (`:id`) y query strings.
-   - Orquesta el flujo: invoca validaciones, mapea al DTO de entrada, interactúa con los modelos y responde mediante el DTO de salida con el código HTTP correspondiente (`200`, `201`, `400`, `404`).
+2. **`controllers/` (endpoints y orquestación):**
+   - Cada controller declara sus propios endpoints con su `router`.
+   - Sus funciones reciben un objeto plano `{ body, params, query }` ya
+     validado por los DTOs. No usan `req` ni `res` ni escriben respuestas.
+   - Devuelven `ok(data, mensaje)` o `created(data, mensaje)`; el adaptador
+     HTTP se encarga del status y del JSON.
+   - Lanzan errores de dominio (`NotFoundError`, `ConflictError`, etc.) y el
+     middleware global los traduce a códigos HTTP.
 
-3. **`dtos/` (Req y Res):**
-   - **Request DTOs (`*DTO.js` / req):** Estructuran, tipan y limpian los datos que llegan en la petición (`req.body`, `req.query`).
-   - **Response DTOs (`*ResponseDTO.js` / res):** Definen la lista blanca de campos que se entregan al cliente, protegiendo campos sensibles como hashes de contraseña.
+3. **`src/http/endpoint.js` (adaptador HTTP):**
+   - Único punto que conoce `req` y `res`.
+   - Recibe el handler del controller y, opcionalmente, los DTOs de `body` y
+     `query`:
 
-4. **`validaciones/` (Condiciones de Validación):**
-   - Carpeta dedicada donde residen las reglas y condiciones (`authValidaciones.js`, `medicamentoValidaciones.js`, etc.): obligatoriedad (`required`), tipos (`string`, `int`, `email`, `date`, `time`), longitudes (`min`, `max`), expresiones regulares y reglas de negocio cruzadas (ej. `fecha_fin >= fecha_inicio`).
-   - `validadorBase.js`: Motor que evalúa las condiciones y genera errores de validación (`ValidationError`).
+   ```js
+   router.post('/', endpoint(crear, { body: CrearMedicamentoDTO }));
+   router.get('/pendientes', endpoint(listarPendientes, { query: DosisPendientesQueryDTO }));
+   ```
+
+4. **`dtos/` (entrada y salida):**
+   - **Request DTOs (`*DTO.js`):** validan formato y tipos del JSON recibido.
+   - **Response DTOs (`*ResponseDTO.js`):** definen la lista blanca de campos
+     que se entregan al cliente y ocultan datos sensibles como
+     `contrasena_hash`.
+
+5. **`validaciones/`:** motor declarativo que usan los DTOs (obligatoriedad,
+   tipos, longitudes, expresiones regulares y reglas cruzadas).
 
 ### Validación de entrada con DTOs
 
-Cada DTO declara sus reglas en `static rules()` y hereda `from()`:
+Cada DTO declara sus reglas en `static rules()` y hereda `from()`. El
+adaptador las aplica antes de llamar al controller:
 
 ```js
-const dto = CrearMedicamentoDTO.from(req.body); // lanza ValidationError si falla
+router.post('/', endpoint(crear, { body: CrearMedicamentoDTO }));
+// endpoint() ejecuta CrearMedicamentoDTO.from(req.body)
+// y el controller recibe { body: dto, params, query }.
 ```
 
 Ejemplo de reglas:
@@ -242,6 +299,10 @@ class UsuarioResponseDTO extends BaseResponseDTO {
 | `UnauthorizedError` | 401    | Credenciales incorrectas o cuenta inactiva |
 | `NotFoundError`     | 404    | Recurso inexistente                      |
 | `ConflictError`     | 409    | Correo o relación ya registrada          |
+
+El middleware global también traduce los errores de Sequelize:
+`SequelizeValidationError` → `400`, `SequelizeUniqueConstraintError` → `409`,
+`SequelizeForeignKeyConstraintError` → `400` y los errores de conexión → `503`.
 
 Además, `validarId()` valida los ids de ruta con `IdParamDTO`; un valor como
 `/api/medicamentos/abc` devuelve `400`, no `500` ni `404`.
@@ -407,9 +468,9 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/dosis/1/confirmar 
   -Headers $headers -ContentType "application/json" -Body $body
 ```
 
-> En esta versión el JWT se emite en el login, pero las rutas todavía no
-> exigen el encabezado `Authorization`. El middleware de autenticación está
-> listado en los pendientes.
+> Todas las rutas (excepto login, registro y health) exigen el encabezado
+> `Authorization: Bearer <token>`. Si no se incluye o ha expirado, la API
+> responde con código `401 Unauthorized`.
 
 ## Estructura
 
@@ -422,11 +483,12 @@ backend/
 ├── postman/
 │   └── SaludTime.postman_collection.json
 ├── scripts/
-│   └── verificar-http.js        # 41 peticiones HTTP de verificación
+│   ├── verificar-http.js        # 41 peticiones HTTP de verificación
+│   └── verificar-bd.js          # 24 controles de datos en PostgreSQL
 └── src/
     ├── config/database.js
-    ├── routes/index.js          # ÚNICO lugar con endpoints
-    ├── controllers/             # Orquestan; no validan ni responden errores
+    ├── http/endpoint.js         # Adaptador HTTP (único con req/res)
+    ├── controllers/             # Endpoints + orquestación, sin req/res
     ├── dtos/
     │   ├── BaseDTO.js           # Validación declarativa de entrada
     │   ├── BaseResponseDTO.js   # Lista blanca de campos de salida
@@ -437,11 +499,12 @@ backend/
     │   ├── errorHandler.js      # Respuesta uniforme de errores
     │   ├── notFound.js          # 404 de rutas inexistentes
     │   └── validarId.js         # Valida ids de ruta con DTO
-    ├── models/                  # Modelos Sequelize y asociaciones
+    ├── models/                  # Modelos Sequelize, asociaciones y validaciones
+    ├── docs/openapi.js          # Especificación Swagger (/docs)
     ├── utils/
     │   ├── fechas.js            # Fechas en hora local
     │   └── transaccion.js       # Transacciones administradas
-    └── views/response.js        # Formato uniforme de respuestas
+    └── views/response.js        # Resultados ok()/created() de los controllers
 ```
 
 ## Pendientes recomendados

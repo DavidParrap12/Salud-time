@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio - SaludTime</title>
+    <link rel="icon" href="/logo.ico" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="estilosPrincipal.css">
+</head>
+<body>
+
+    <header>
+        <a href="principal.html" class="nav-brand">
+            <img src="/logo.jpg" alt="SaludTime Logo" class="nav-logo">
+            <span>SaludTime</span>
+        </a>
+
+        <nav>
+            <ul>
+                <li><a href="principal.html" class="active"><span class="material-icons">home</span> Inicio</a></li>
+                <li><a href="medicamentos.html"><span class="material-icons">vaccines</span> Medicamentos</a></li>
+                <li><a href="recordatorios.html"><span class="material-icons">notifications</span> Recordatorios</a></li>
+                <li><a href="calendario.html"><span class="material-icons">calendar_month</span> Calendario</a></li>
+                <li><a href="reporte.html"><span class="material-icons">assessment</span> Reporte</a></li>
+            </ul>
+        </nav>
+
+        <div class="nav-user">
+            <span class="user-name" id="nombreUsuario">Cargando...</span>
+            <button class="btn-logout" id="btnLogout">
+                <span class="material-icons">logout</span>
+                Salir
+            </button>
+        </div>
+    </header>
+
+    <main>
+
+        <div class="welcome-section">
+            <h1>¡Bienvenido de vuelta!</h1>
+            <p>Aquí tienes un resumen de tu salud hoy, <span id="fechaHoy"></span>.</p>
+        </div>
+
+        <div class="alert" id="mensaje" hidden></div>
+
+        <!-- Tarjetas de estadísticas -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon green">
+                        <span class="material-icons">medication</span>
+                    </div>
+                </div>
+                <div class="stat-number" id="statMedicamentos">—</div>
+                <div class="stat-label">Medicamentos activos</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon teal">
+                        <span class="material-icons">check_circle</span>
+                    </div>
+                </div>
+                <div class="stat-number" id="statTomadas">—</div>
+                <div class="stat-label">Tomados hoy</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon orange">
+                        <span class="material-icons">schedule</span>
+                    </div>
+                </div>
+                <div class="stat-number" id="statPendientes">—</div>
+                <div class="stat-label">Pendientes hoy</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon purple">
+                        <span class="material-icons">trending_up</span>
+                    </div>
+                </div>
+                <div class="stat-number" id="statAdherencia">—</div>
+                <div class="stat-label">Adherencia de hoy</div>
+            </div>
+        </div>
+
+        <!-- Accesos rápidos -->
+        <div class="quick-actions">
+            <a href="medicamentos.html" class="action-btn">
+                <span class="material-icons">add_circle</span>
+                Agregar medicamento
+            </a>
+            <a href="recordatorios.html" class="action-btn">
+                <span class="material-icons">alarm_add</span>
+                Nuevo recordatorio
+            </a>
+            <a href="calendario.html" class="action-btn">
+                <span class="material-icons">event</span>
+                Ver calendario
+            </a>
+            <a href="reporte.html" class="action-btn">
+                <span class="material-icons">assessment</span>
+                Ver reporte
+            </a>
+        </div>
+
+        <!-- Grilla inferior: dosis del día + pendientes -->
+        <div class="dashboard-grid">
+
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Medicamentos de hoy</h2>
+                    <a href="medicamentos.html">Ver todos →</a>
+                </div>
+                <div class="med-list" id="listaMedicamentosHoy">
+                    <p class="empty-state">Cargando dosis...</p>
+                </div>
+            </div>
+
+            <div class="content-card">
+                <div class="card-header">
+                    <h2>Dosis pendientes</h2>
+                    <a href="recordatorios.html">Ver recordatorios →</a>
+                </div>
+                <div class="reminder-list" id="listaPendientes">
+                    <p class="empty-state">Cargando...</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer>
+        <p>&copy; <span id="anio"></span> SaludTime. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="app.js"></script>
+
+</body>
+</html>

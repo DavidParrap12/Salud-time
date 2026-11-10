@@ -3,11 +3,6 @@
  * Permite monitorear la entrada de la petición, parámetros y la salida HTTP con su tiempo de respuesta.
  */
 function flowLogger(req, res, next) {
-  // Ignorar peticiones de assets estáticos de Swagger para mantener limpio el log
-  if (req.url.startsWith('/docs/') && (req.url.endsWith('.css') || req.url.endsWith('.js') || req.url.endsWith('.png'))) {
-    return next();
-  }
-
   const inicio = Date.now();
   const hora = new Date().toLocaleTimeString('es-CO', { hour12: false });
   const metodo = req.method.padEnd(6);

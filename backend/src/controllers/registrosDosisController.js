@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const asyncHandler = require('../middlewares/asyncHandler');
+const endpoint = require('../http/endpoint');
 const validarId = require('../middlewares/validarId');
 const { RegistroDosis, DosisProgramada, Recordatorio, Tratamiento } = require('../models');
 const RegistroDosisResponseDTO = require('../dtos/registro/RegistroDosisResponseDTO');
@@ -8,15 +8,13 @@ const { ok } = require('../views/response');
 const { NotFoundError } = require('../errors/AppError');
 
 const router = Router();
-const r = (handler) => asyncHandler(handler);
 
 // ==========================================
-// Orquestación y validación HTTP
+// Orquestación de los casos de uso
 // ==========================================
 
-const listar = async (req, res) => {
-  // DTO de entrada: verifica formato JSON de query params
-  const { id_paciente } = RegistrosQueryDTO.from(req.query);
+const listar = async ({ query }) => {
+  const { id_paciente } = query;
 
   const include = id_paciente
     ? [{
@@ -38,20 +36,20 @@ const listar = async (req, res) => {
     : [];
 
   const registros = await RegistroDosis.findAll({ include });
-  return ok(res, RegistroDosisResponseDTO.fromList(registros));
+  return ok(RegistroDosisResponseDTO.fromList(registros));
 };
 
-const obtener = async (req, res) => {
-  const registro = await RegistroDosis.findByPk(req.params.id);
+const obtener = async ({ params }) => {
+  const registro = await RegistroDosis.findByPk(params.id);
   if (!registro) throw new NotFoundError('Registro no encontrado');
-  return ok(res, new RegistroDosisResponseDTO(registro));
+  return ok(new RegistroDosisResponseDTO(registro));
 };
 
 // ==========================================
 // Endpoints definidos en el Controller
 // ==========================================
-router.get('/', r(listar));
-router.get('/:id', validarId(), r(obtener));
+router.get('/', endpoint(listar, { query: RegistrosQueryDTO }));
+router.get('/:id', validarId(), endpoint(obtener));
 
 module.exports = router;
 module.exports.listar = listar;

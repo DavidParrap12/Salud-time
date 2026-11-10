@@ -26,6 +26,12 @@ class UnauthorizedError extends AppError {
   }
 }
 
+class ForbiddenError extends AppError {
+  constructor(mensaje = 'Acceso denegado') {
+    super(403, mensaje);
+  }
+}
+
 class NotFoundError extends AppError {
   constructor(mensaje = 'Recurso no encontrado') {
     super(404, mensaje);
@@ -43,6 +49,7 @@ module.exports = {
   ValidationError,
   BusinessError,
   UnauthorizedError,
+  ForbiddenError,
   NotFoundError,
   ConflictError
 };

@@ -1,5 +1,12 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const {
+  textoRequerido,
+  referencia,
+  fechaValida,
+  horaValida,
+  rangoFechas
+} = require('./validaciones');
 
 const Recordatorio = sequelize.define('RECORDATORIO', {
   id_recordatorio: {
@@ -9,23 +16,28 @@ const Recordatorio = sequelize.define('RECORDATORIO', {
   },
   id_tratamiento: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: false,
+    validate: referencia('id_tratamiento')
   },
   hora: {
     type: DataTypes.TIME,
-    allowNull: false
+    allowNull: false,
+    validate: horaValida('hora')
   },
   dias_semana: {
     type: DataTypes.STRING(50),
-    allowNull: false
+    allowNull: false,
+    validate: textoRequerido('dias_semana', 50)
   },
   fecha_inicio: {
     type: DataTypes.DATEONLY,
-    allowNull: false
+    allowNull: false,
+    validate: fechaValida('fecha_inicio')
   },
   fecha_fin: {
     type: DataTypes.DATEONLY,
-    allowNull: true
+    allowNull: true,
+    validate: fechaValida('fecha_fin')
   },
   estado: {
     type: DataTypes.BOOLEAN,
@@ -33,7 +45,10 @@ const Recordatorio = sequelize.define('RECORDATORIO', {
     defaultValue: true
   }
 }, {
-  tableName: 'RECORDATORIO'
+  tableName: 'RECORDATORIO',
+  validate: {
+    fechasCoherentes: rangoFechas('fecha_inicio', 'fecha_fin')
+  }
 });
 
 module.exports = Recordatorio;

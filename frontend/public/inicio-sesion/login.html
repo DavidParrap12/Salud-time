@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - SaludTime</title>
+    <link rel="icon" href="/logo.ico" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="/public/logo.ico">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="estiloLogin.css">
+</head>
+<body>
+
+    <!-- Panel lateral izquierdo-->
+    <div class="login-brand">
+        <div class="brand-content">
+            <div class="brand-logo">
+                <img src="/logo.jpg" alt="SaludTime Logo">
+            </div>
+            <h2 class="brand-title">SaludTime</h2>
+            <p class="brand-subtitle">Tu compañero digital para gestionar medicamentos y cuidar tu salud día a día.</p>
+
+            <div class="brand-features">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <span class="material-icons">notifications_active</span>
+                    </div>
+                    <span>Recordatorios inteligentes</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <span class="material-icons">calendar_month</span>
+                    </div>
+                    <span>Calendario de medicamentos</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <span class="material-icons">assessment</span>
+                    </div>
+                    <span>Reportes de tu salud</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario ingreso usuario-->
+    <div class="login-form-container">
+        <div class="login-card">
+            <h1>Iniciar Sesión</h1>
+            <p class="subtitle">Ingresa tus credenciales para acceder a tu cuenta.</p>
+
+            <!-- Mensajes que muestra el JS -->
+            <div class="alert alert-success" id="mensajeExito" hidden></div>
+
+            <div class="error-message" id="errorMsg">
+                <span class="material-icons">error</span>
+                <span>Correo o contraseña incorrectos. Intenta de nuevo.</span>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="correo">Correo electrónico</label>
+                    <div class="input-wrapper">
+                        <span class="material-icons">mail</span>
+                        <input type="email" id="correo" name="correo" placeholder="paciente@saludtime.com" autocomplete="email" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="contraseña">Contraseña</label>
+                    <div class="input-wrapper">
+                        <span class="material-icons">lock</span>
+                        <input type="password" id="contraseña" name="contrasena" placeholder="Ingresa tu contraseña" autocomplete="current-password" required>
+                        <button type="button" class="toggle-password" id="togglePass">
+                            <span class="material-icons">visibility</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="remember-me">
+                        <input type="checkbox"> Recordarme
+                    </label>
+                    <a href="#" class="forgot-link">¿Olvidaste tu contraseña?</a>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="submit" class="btn-login">Iniciar Sesión</button>
+                    <a href="registro.html" class="btn-register">Registrarse</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script src="login.js"></script>
+
+</body>
+</html>

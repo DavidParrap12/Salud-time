@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte - SaludTime</title>
+    <link rel="icon" href="/logo.ico" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="estilosPrincipal.css">
+</head>
+<body>
+
+    <header>
+        <a href="principal.html" class="nav-brand">
+            <img src="/logo.jpg" alt="SaludTime Logo" class="nav-logo">
+            <span>SaludTime</span>
+        </a>
+        <nav>
+            <ul>
+                <li><a href="principal.html"><span class="material-icons">home</span> Inicio</a></li>
+                <li><a href="medicamentos.html"><span class="material-icons">vaccines</span> Medicamentos</a></li>
+                <li><a href="recordatorios.html"><span class="material-icons">notifications</span> Recordatorios</a></li>
+                <li><a href="calendario.html"><span class="material-icons">calendar_month</span> Calendario</a></li>
+                <li><a href="reporte.html" class="active"><span class="material-icons">assessment</span> Reporte</a></li>
+            </ul>
+        </nav>
+        <div class="nav-user">
+            <span class="user-name" id="nombreUsuario">Cargando...</span>
+            <button class="btn-logout" id="btnLogout">
+                <span class="material-icons">logout</span> Salir
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <div class="welcome-section">
+            <h1>Reporte de adherencia</h1>
+            <p>Genera un reporte con el cumplimiento de tus dosis en un rango de fechas.</p>
+        </div>
+
+        <div class="alert" id="mensaje" hidden></div>
+
+        <section class="content-card">
+            <div class="card-header">
+                <h2>Generar reporte</h2>
+            </div>
+
+            <form id="formReporte" class="form-grid" novalidate>
+                <div class="form-field">
+                    <label for="fecha_inicio">Desde *</label>
+                    <input type="date" id="fecha_inicio" required>
+                </div>
+                <div class="form-field">
+                    <label for="fecha_fin">Hasta *</label>
+                    <input type="date" id="fecha_fin" required>
+                </div>
+                <div class="form-actions form-field-full">
+                    <button type="submit" class="btn-primary" id="btnGenerar">Generar reporte</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="content-card" id="panelResultado" hidden>
+            <div class="card-header">
+                <h2 id="tituloResultado">Resultado</h2>
+                <span class="muted" id="rangoReporte"></span>
+            </div>
+
+            <div class="report-grid">
+                <div class="report-stat">
+                    <span class="report-value" id="repTotal">0</span>
+                    <span class="report-label">Dosis programadas</span>
+                </div>
+                <div class="report-stat">
+                    <span class="report-value" id="repTomadas">0</span>
+                    <span class="report-label">Tomadas</span>
+                </div>
+                <div class="report-stat">
+                    <span class="report-value" id="repOmitidas">0</span>
+                    <span class="report-label">Omitidas</span>
+                </div>
+                <div class="report-stat">
+                    <span class="report-value" id="repPendientes">0</span>
+                    <span class="report-label">Pendientes</span>
+                </div>
+            </div>
+
+            <div class="progress-block">
+                <div class="progress-label">
+                    <span>Adherencia</span>
+                    <strong id="repAdherencia">0%</strong>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="repBarra" style="width: 0%"></div>
+                </div>
+                <p class="muted" id="repNivel"></p>
+            </div>
+
+            <div class="share-block">
+                <h3>Compartir reporte</h3>
+                <form id="formCompartir" class="form-inline" novalidate>
+                    <input type="email" id="correo_destino" placeholder="cuidador@saludtime.com" required>
+                    <button type="submit" class="btn-secondary" id="btnCompartir">Enviar por correo</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; <span id="anio"></span> SaludTime. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/reporte.js"></script>
+</body>
+</html>

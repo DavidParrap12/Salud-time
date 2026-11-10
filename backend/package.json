@@ -9,7 +9,8 @@
     "start": "node server.js",
     "seed": "node seed.js",
     "demo": "node demo.js",
-    "verify": "node scripts/verificar-http.js"
+    "verify": "node scripts/verificar-http.js",
+    "verify:db": "node scripts/verificar-bd.js"
   },
   "keywords": [],
   "author": "",

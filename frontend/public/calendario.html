@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario - SaludTime</title>
+    <link rel="icon" href="/logo.ico" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="estilosPrincipal.css">
+</head>
+<body>
+
+    <header>
+        <a href="principal.html" class="nav-brand">
+            <img src="/logo.jpg" alt="SaludTime Logo" class="nav-logo">
+            <span>SaludTime</span>
+        </a>
+        <nav>
+            <ul>
+                <li><a href="principal.html"><span class="material-icons">home</span> Inicio</a></li>
+                <li><a href="medicamentos.html"><span class="material-icons">vaccines</span> Medicamentos</a></li>
+                <li><a href="recordatorios.html"><span class="material-icons">notifications</span> Recordatorios</a></li>
+                <li><a href="calendario.html" class="active"><span class="material-icons">calendar_month</span> Calendario</a></li>
+                <li><a href="reporte.html"><span class="material-icons">assessment</span> Reporte</a></li>
+            </ul>
+        </nav>
+        <div class="nav-user">
+            <span class="user-name" id="nombreUsuario">Cargando...</span>
+            <button class="btn-logout" id="btnLogout">
+                <span class="material-icons">logout</span> Salir
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <div class="welcome-section">
+            <h1>Calendario</h1>
+            <p>Consulta el cumplimiento de tus dosis por día.</p>
+        </div>
+
+        <div class="alert" id="mensaje" hidden></div>
+
+        <section class="content-card">
+            <div class="calendar-header">
+                <button class="btn-secondary" id="btnAnterior">← Anterior</button>
+                <h2 id="tituloMes">—</h2>
+                <div class="calendar-actions">
+                    <button class="btn-secondary" id="btnHoy">Hoy</button>
+                    <button class="btn-secondary" id="btnSiguiente">Siguiente →</button>
+                </div>
+            </div>
+
+            <div class="calendar-grid" id="diasCalendario">
+                <p class="empty-state">Cargando...</p>
+            </div>
+
+            <div class="calendar-legend">
+                <span><i class="dot done"></i> Tomadas</span>
+                <span><i class="dot pending"></i> Pendientes</span>
+                <span><i class="dot missed"></i> Omitidas</span>
+            </div>
+
+            <p class="muted" id="resumenMes"></p>
+        </section>
+
+        <section class="content-card" id="detalleDia" hidden>
+            <div class="card-header">
+                <h2 id="tituloDetalle">Dosis del día</h2>
+            </div>
+            <div class="med-list" id="listaDetalle"></div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; <span id="anio"></span> SaludTime. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/calendario.js"></script>
+</body>
+</html>

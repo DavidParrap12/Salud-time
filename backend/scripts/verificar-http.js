@@ -89,7 +89,17 @@ async function principal() {
     esperados: [409]
   });
 
-  // 3. Catálogos
+  // 3. Verificación de seguridad JWT
+  await probar('Acceso a ruta protegida sin token', 'GET', '/api/medicamentos', {
+    esperados: [401]
+  });
+
+  await probar('Acceso a ruta protegida con token inválido', 'GET', '/api/medicamentos', {
+    headers: { Authorization: 'Bearer token_invalido_xyz' },
+    esperados: [401]
+  });
+
+  // 4. Catálogos protegidos con JWT
   await probar('Especializaciones', 'GET', '/api/especializaciones', { headers: auth() });
   await probar('Roles', 'GET', '/api/roles', { headers: auth() });
   await probar('Usuarios', 'GET', '/api/usuarios', { headers: auth() });

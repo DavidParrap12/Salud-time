@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recordatorios - SaludTime</title>
+    <link rel="icon" href="/logo.ico" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="estilosPrincipal.css">
+</head>
+<body>
+
+    <header>
+        <a href="principal.html" class="nav-brand">
+            <img src="/logo.jpg" alt="SaludTime Logo" class="nav-logo">
+            <span>SaludTime</span>
+        </a>
+        <nav>
+            <ul>
+                <li><a href="principal.html"><span class="material-icons">home</span> Inicio</a></li>
+                <li><a href="medicamentos.html"><span class="material-icons">vaccines</span> Medicamentos</a></li>
+                <li><a href="recordatorios.html" class="active"><span class="material-icons">notifications</span> Recordatorios</a></li>
+                <li><a href="calendario.html"><span class="material-icons">calendar_month</span> Calendario</a></li>
+                <li><a href="reporte.html"><span class="material-icons">assessment</span> Reporte</a></li>
+            </ul>
+        </nav>
+        <div class="nav-user">
+            <span class="user-name" id="nombreUsuario">Cargando...</span>
+            <button class="btn-logout" id="btnLogout">
+                <span class="material-icons">logout</span> Salir
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <div class="welcome-section">
+            <h1>Recordatorios</h1>
+            <p>Programa los horarios de tus tratamientos activos.</p>
+        </div>
+
+        <div class="alert" id="mensaje" hidden></div>
+
+        <div class="page-grid">
+            <section class="content-card">
+                <div class="card-header">
+                    <h2>Nuevo recordatorio</h2>
+                </div>
+
+                <form id="formRecordatorio" class="form-grid" novalidate>
+                    <div class="form-field form-field-full">
+                        <label for="tratamiento">Tratamiento *</label>
+                        <select id="tratamiento" required>
+                            <option value="">Cargando tratamientos...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="hora">Hora *</label>
+                        <input type="time" id="hora" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="fecha_inicio">Fecha de inicio *</label>
+                        <input type="date" id="fecha_inicio" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="fecha_fin">Fecha de fin (opcional)</label>
+                        <input type="date" id="fecha_fin">
+                    </div>
+
+                    <div class="form-field form-field-full">
+                        <label>Días de la semana *</label>
+                        <div class="days-grid" id="diasSemana">
+                            <label><input type="checkbox" value="LUN" checked> Lun</label>
+                            <label><input type="checkbox" value="MAR" checked> Mar</label>
+                            <label><input type="checkbox" value="MIE" checked> Mié</label>
+                            <label><input type="checkbox" value="JUE" checked> Jue</label>
+                            <label><input type="checkbox" value="VIE" checked> Vie</label>
+                            <label><input type="checkbox" value="SAB" checked> Sáb</label>
+                            <label><input type="checkbox" value="DOM" checked> Dom</label>
+                        </div>
+                    </div>
+
+                    <div class="form-actions form-field-full">
+                        <button type="submit" class="btn-primary" id="btnGuardar">Crear recordatorio</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="content-card">
+                <div class="card-header">
+                    <h2>Recordatorios activos</h2>
+                    <span class="muted" id="contadorRecordatorios"></span>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="tabla">
+                        <thead>
+                            <tr>
+                                <th>Tratamiento</th>
+                                <th>Hora</th>
+                                <th>Días</th>
+                                <th>Vigencia</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaRecordatorios">
+                            <tr><td colspan="5" class="empty-state">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; <span id="anio"></span> SaludTime. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/recordatorios.js"></script>
+</body>
+</html>

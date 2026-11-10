@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const asyncHandler = require('../middlewares/asyncHandler');
+const endpoint = require('../http/endpoint');
 const validarId = require('../middlewares/validarId');
 const {
   DosisProgramada,
@@ -21,7 +21,6 @@ const { BusinessError, NotFoundError } = require('../errors/AppError');
 const enTransaccion = require('../utils/transaccion');
 
 const router = Router();
-const r = (handler) => asyncHandler(handler);
 
 const buscarDosis = async (id, { conRelaciones = false, transaction } = {}) => {
   const include = conRelaciones
@@ -39,12 +38,11 @@ const buscarDosis = async (id, { conRelaciones = false, transaction } = {}) => {
 };
 
 // ==========================================
-// Orquestación y validación HTTP
+// Orquestación de los casos de uso
 // ==========================================
 
-const listarPendientes = async (req, res) => {
-  // DTO de entrada: verifica formato JSON de query params
-  const { id_paciente } = DosisPendientesQueryDTO.from(req.query);
+const listarPendientes = async ({ query }) => {
+  const { id_paciente } = query;
 
   const include = id_paciente
     ? [{
@@ -65,16 +63,12 @@ const listarPendientes = async (req, res) => {
     include
   });
 
-  // DTO de salida: verifica y da formato al JSON
-  return ok(res, DosisProgramadaResponseDTO.fromList(dosis));
+  return ok(DosisProgramadaResponseDTO.fromList(dosis));
 };
 
-const confirmar = async (req, res) => {
-  // DTO de entrada: verifica formato JSON
-  const dto = ConfirmarDosisDTO.from(req.body);
-
+const confirmar = async ({ params, body: dto }) => {
   const resultado = await enTransaccion(async (transaction) => {
-    const dosis = await buscarDosis(req.params.id, { transaction });
+    const dosis = await buscarDosis(params.id, { transaction });
 
     await dosis.update({ estado: 'TOMADA' }, { transaction });
 
@@ -87,16 +81,12 @@ const confirmar = async (req, res) => {
     return { dosis, registro };
   });
 
-  // DTO de salida: verifica JSON
-  return created(res, new DosisRegistradaResponseDTO(resultado), 'Dosis confirmada');
+  return created(new DosisRegistradaResponseDTO(resultado), 'Dosis confirmada');
 };
 
-const omitir = async (req, res) => {
-  // DTO de entrada: verifica formato JSON
-  const dto = OmitirDosisDTO.from(req.body);
-
+const omitir = async ({ params, body: dto }) => {
   const resultado = await enTransaccion(async (transaction) => {
-    const dosis = await buscarDosis(req.params.id, { conRelaciones: true, transaction });
+    const dosis = await buscarDosis(params.id, { conRelaciones: true, transaction });
 
     await dosis.update({ estado: 'OMITIDA' }, { transaction });
 
@@ -127,14 +117,10 @@ const omitir = async (req, res) => {
     return { dosis, registro };
   });
 
-  // DTO de salida: verifica JSON
-  return created(res, new DosisRegistradaResponseDTO(resultado), 'Dosis registrada como omitida');
+  return created(new DosisRegistradaResponseDTO(resultado), 'Dosis registrada como omitida');
 };
 
-const generarAlerta = async (req, res) => {
-  // DTO de entrada: verifica formato JSON
-  const dto = GenerarAlertaDTO.from(req.body);
-
+const generarAlerta = async ({ body: dto }) => {
   const dosis = await DosisProgramada.findByPk(dto.id_dosis_programada);
   if (!dosis) throw new NotFoundError('Dosis no encontrada');
 
@@ -146,17 +132,16 @@ const generarAlerta = async (req, res) => {
     estado: 'PENDIENTE'
   });
 
-  // DTO de salida: verifica JSON
-  return created(res, new NotificacionResponseDTO(notificacion), 'Alerta generada');
+  return created(new NotificacionResponseDTO(notificacion), 'Alerta generada');
 };
 
 // ==========================================
 // Endpoints definidos en el Controller
 // ==========================================
-router.get('/pendientes', r(listarPendientes));
-router.post('/alerta', r(generarAlerta));
-router.post('/:id/confirmar', validarId(), r(confirmar));
-router.post('/:id/omitir', validarId(), r(omitir));
+router.get('/pendientes', endpoint(listarPendientes, { query: DosisPendientesQueryDTO }));
+router.post('/alerta', endpoint(generarAlerta, { body: GenerarAlertaDTO }));
+router.post('/:id/confirmar', validarId(), endpoint(confirmar, { body: ConfirmarDosisDTO }));
+router.post('/:id/omitir', validarId(), endpoint(omitir, { body: OmitirDosisDTO }));
 
 module.exports = router;
 module.exports.listarPendientes = listarPendientes;

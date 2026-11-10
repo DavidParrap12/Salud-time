@@ -27,6 +27,13 @@ Content-Type: application/json
   "contrasena": "incorrecta"
 }
 
+### 2.1. Acceso a ruta protegida sin token (espera 401)
+GET {{host}}/api/medicamentos
+
+### 2.2. Acceso a ruta protegida con token inválido (espera 401)
+GET {{host}}/api/medicamentos
+Authorization: Bearer token_falso_invalido
+
 ### 3. Registro de paciente
 POST {{host}}/api/auth/registro/paciente
 Content-Type: application/json

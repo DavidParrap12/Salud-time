@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const { referencia } = require('./validaciones');
 
 const UsuarioRol = sequelize.define('USUARIO_ROL', {
   id_usuario_rol: {
@@ -9,15 +10,18 @@ const UsuarioRol = sequelize.define('USUARIO_ROL', {
   },
   id_usuario: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: false,
+    validate: referencia('id_usuario')
   },
   id_rol: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: false,
+    validate: referencia('id_rol')
   },
   id_especializacion: {
     type: DataTypes.INTEGER,
-    allowNull: true
+    allowNull: true,
+    validate: referencia('id_especializacion')
   },
   fecha_asignacion: {
     type: DataTypes.DATE,

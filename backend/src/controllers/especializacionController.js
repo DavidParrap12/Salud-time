@@ -1,20 +1,24 @@
 const { Router } = require('express');
-const asyncHandler = require('../middlewares/asyncHandler');
+const endpoint = require('../http/endpoint');
 const { Especializacion } = require('../models');
 const EspecializacionResponseDTO = require('../dtos/especializacion/EspecializacionResponseDTO');
 const { ok } = require('../views/response');
 
 const router = Router();
-const r = (handler) => asyncHandler(handler);
 
-// Orquestación HTTP
-const listar = async (req, res) => {
+// ==========================================
+// Orquestación de los casos de uso
+// ==========================================
+
+const listar = async () => {
   const lista = await Especializacion.findAll();
-  return ok(res, EspecializacionResponseDTO.fromList(lista));
+  return ok(EspecializacionResponseDTO.fromList(lista));
 };
 
+// ==========================================
 // Endpoints definidos en el Controller
-router.get('/', r(listar));
+// ==========================================
+router.get('/', endpoint(listar));
 
 module.exports = router;
 module.exports.listar = listar;

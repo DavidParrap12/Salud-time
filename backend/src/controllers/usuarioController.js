@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const asyncHandler = require('../middlewares/asyncHandler');
+const endpoint = require('../http/endpoint');
 const validarId = require('../middlewares/validarId');
 const { Usuario, Rol, UsuarioRol } = require('../models');
 const ActualizarUsuarioDTO = require('../dtos/usuario/ActualizarUsuarioDTO');
@@ -10,31 +10,27 @@ const { ok, created } = require('../views/response');
 const { ConflictError, NotFoundError } = require('../errors/AppError');
 
 const router = Router();
-const r = (handler) => asyncHandler(handler);
 
 // ==========================================
-// Orquestación y validación HTTP
+// Orquestación de los casos de uso
 // ==========================================
 
-const listar = async (req, res) => {
+const listar = async () => {
   const usuarios = await Usuario.findAll();
-  return ok(res, UsuarioResponseDTO.fromList(usuarios));
+  return ok(UsuarioResponseDTO.fromList(usuarios));
 };
 
-const obtener = async (req, res) => {
-  const usuario = await Usuario.findByPk(req.params.id, {
+const obtener = async ({ params }) => {
+  const usuario = await Usuario.findByPk(params.id, {
     include: [{ model: Rol, as: 'roles' }]
   });
   if (!usuario) throw new NotFoundError('Usuario no encontrado');
-  return ok(res, new UsuarioResponseDTO(usuario));
+  return ok(new UsuarioResponseDTO(usuario));
 };
 
-const actualizar = async (req, res) => {
-  const usuario = await Usuario.findByPk(req.params.id);
+const actualizar = async ({ params, body: dto }) => {
+  const usuario = await Usuario.findByPk(params.id);
   if (!usuario) throw new NotFoundError('Usuario no encontrado');
-
-  // DTO de entrada: verifica formato JSON del payload
-  const dto = ActualizarUsuarioDTO.from(req.body);
 
   await usuario.update({
     nombre_completo: dto.nombre_completo ?? usuario.nombre_completo,
@@ -42,24 +38,20 @@ const actualizar = async (req, res) => {
     edad: dto.edad ?? usuario.edad
   });
 
-  // DTO de salida: verifica y estructura JSON
-  return ok(res, new UsuarioResponseDTO(usuario), 'Usuario actualizado');
+  return ok(new UsuarioResponseDTO(usuario), 'Usuario actualizado');
 };
 
-const desactivar = async (req, res) => {
-  const usuario = await Usuario.findByPk(req.params.id);
+const desactivar = async ({ params }) => {
+  const usuario = await Usuario.findByPk(params.id);
   if (!usuario) throw new NotFoundError('Usuario no encontrado');
 
   await usuario.update({ estado: false });
-  return ok(res, null, 'Usuario desactivado');
+  return ok(null, 'Usuario desactivado');
 };
 
-const asignarRol = async (req, res) => {
-  const usuario = await Usuario.findByPk(req.params.id);
+const asignarRol = async ({ params, body: dto }) => {
+  const usuario = await Usuario.findByPk(params.id);
   if (!usuario) throw new NotFoundError('Usuario no encontrado');
-
-  // DTO de entrada: verifica formato JSON
-  const dto = AsignarRolDTO.from(req.body);
 
   const rol = await Rol.findByPk(dto.id_rol);
   if (!rol) throw new NotFoundError('Rol no encontrado');
@@ -75,18 +67,17 @@ const asignarRol = async (req, res) => {
     id_especializacion: dto.id_especializacion
   });
 
-  // DTO de salida: verifica formato JSON
-  return created(res, new AsignacionRolResponseDTO(asignacion), 'Rol asignado');
+  return created(new AsignacionRolResponseDTO(asignacion), 'Rol asignado');
 };
 
 // ==========================================
 // Endpoints definidos en el Controller
 // ==========================================
-router.get('/', r(listar));
-router.get('/:id', validarId(), r(obtener));
-router.put('/:id', validarId(), r(actualizar));
-router.delete('/:id', validarId(), r(desactivar));
-router.post('/:id/roles', validarId(), r(asignarRol));
+router.get('/', endpoint(listar));
+router.get('/:id', validarId(), endpoint(obtener));
+router.put('/:id', validarId(), endpoint(actualizar, { body: ActualizarUsuarioDTO }));
+router.delete('/:id', validarId(), endpoint(desactivar));
+router.post('/:id/roles', validarId(), endpoint(asignarRol, { body: AsignarRolDTO }));
 
 module.exports = router;
 module.exports.listar = listar;

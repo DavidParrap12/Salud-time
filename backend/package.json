@@ -8,8 +8,7 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "db:init": "node scripts/inicializar-bd.js",
-    "seed": "node seed.js",
-    "demo": "node demo.js",
+    "seed:demo": "node seed.js",
     "verify": "node scripts/verificar-http.js",
     "verify:db": "node scripts/verificar-bd.js",
     "verify:flow": "node scripts/verificar-flujo.js"

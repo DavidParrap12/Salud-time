@@ -10,7 +10,7 @@ const inicio = async () =>
       version: '1.0.0',
       salud: '/api/health',
       endpoints: '/api',
-      documentacion: 'Ver README.md y api.http'
+      documentacion: 'Ver README.md'
     },
     'API Salud Time'
   );

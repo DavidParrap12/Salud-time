@@ -1,12 +1,17 @@
 /**
  * Crea las tablas y carga datos de demostración.
- * Uso: npm run seed
+ * Uso: npm run seed:demo (solo bases *_test o *_demo)
  *
  * ADVERTENCIA: elimina y vuelve a crear todas las tablas de la base de datos
- * configurada en .env (DB_NAME).
+ * configurada en .env (DB_NAME). La protección de nombre impide usar una base normal.
  */
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+if (!/_(test|demo)$/.test(process.env.DB_NAME || '')) {
+  console.error('La carga de demostración solo se permite en una base cuyo nombre termine en _test o _demo.');
+  process.exit(1);
+}
 
 const bcrypt = require('bcryptjs');
 const {

@@ -63,13 +63,15 @@ Cree las tablas y roles sin borrar datos existentes:
 npm run db:init
 ```
 
-Opcionalmente, cargue datos de demostración (esto **elimina y recrea** las tablas):
+Para pruebas aisladas puede usar una base cuyo nombre termine en `_test` o
+`_demo` y cargar datos de ejemplo. Este comando **elimina y recrea** sus tablas:
 
 ```bash
-npm run seed
+npm run seed:demo
 ```
 
-> `npm run seed` es solo para desarrollo. No lo ejecute sobre una base con datos reales.
+`seed.js` no es necesario para usar la aplicación. El comando rechaza bases con
+otros nombres para proteger los datos reales.
 
 ## 3. Configurar el frontend
 
@@ -105,7 +107,7 @@ npm start
 
 Abra **http://localhost:4000** en el navegador.
 
-## Usuarios de demostración
+## Usuarios de demostración (solo después de `seed:demo`)
 
 | Rol      | Correo                  | Contraseña  |
 | -------- | ----------------------- | ----------- |
@@ -162,11 +164,11 @@ Authorization: Bearer <token>
 
 ## Verificación
 
-Con el backend en ejecución y la base de datos cargada:
+Con el backend en ejecución y la base de datos configurada:
 
 ```bash
 cd backend
-npm run verify      # comprobaciones HTTP
+npm run verify      # comprobaciones HTTP con datos de seed:demo
 npm run verify:db   # 24 controles sobre PostgreSQL
 npm run verify:flow # prueba proxy → API → PostgreSQL (solo base *_test)
 ```
@@ -179,15 +181,21 @@ por la API. Deja esos registros en la base de prueba para comprobar persistencia
 Para mostrar el flujo en el navegador: registre un paciente, inicie sesión,
 cree un medicamento y un tratamiento en **Medicamentos**, cree un horario en
 **Recordatorios** y abra **Calendario**. Recargue la página: los datos se leen
-otra vez desde PostgreSQL mediante `/api`. No ejecute `npm run seed` después de
+otra vez desde PostgreSQL mediante `/api`. No ejecute `npm run seed:demo` después de
 crear datos que quiera conservar: ese comando recrea las tablas.
+
+Para obtener un JWT desde Postman, importe
+`backend/postman/SaludTime.postman_collection.json`, ajuste las variables
+`correo` y `contrasena` a una cuenta registrada y ejecute **Login (ejecutar
+primero)**. La colección guarda `data.token` automáticamente. Los ejemplos con
+IDs fijos están pensados para la base de demostración.
 
 ## Estructura del proyecto
 
 ```
 backend/
   server.js            Arranque, middlewares y montaje de routers
-  seed.js              Datos de demostración
+  seed.js              Datos opcionales para una base *_test o *_demo
   src/
     controllers/       Endpoints y casos de uso
     dtos/              Validación de entrada y formato de salida

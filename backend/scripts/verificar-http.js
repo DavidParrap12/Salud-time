@@ -3,7 +3,7 @@
  *
  * Requiere el servidor corriendo y, preferiblemente, datos frescos:
  *   Terminal 1: npm start
- *   Terminal 2: npm run seed
+ *   Terminal 2: npm run seed:demo (solo base *_test o *_demo)
  *   Terminal 2: npm run verify
  *
  * Sale con código 1 si alguna prueba falla.
@@ -193,7 +193,7 @@ async function principal() {
       headers: auth()
     });
   } else {
-    console.log('[OMIT] No hay dosis pendientes: ejecute "npm run seed" para probar confirmar/alerta');
+    console.log('[OMIT] No hay dosis pendientes: ejecute "npm run seed:demo" en una base de prueba');
   }
 
   // 8. Notificaciones

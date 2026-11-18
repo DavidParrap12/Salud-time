@@ -1,12 +1,14 @@
 {
   "info": {
     "name": "Salud Time API",
-    "description": "Colección de pruebas HTTP para la API Salud Time. Ejecutar primero 'Login' para guardar el token. Los ids corresponden a los datos de npm run seed.",
+    "description": "Colección manual para la API Salud Time. Configure correo y contrasena, luego ejecute Login para guardar el token. Las rutas con ids fijos corresponden a una base de demostración creada con npm run seed:demo.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:3000" },
     { "key": "token", "value": "" },
+    { "key": "correo", "value": "" },
+    { "key": "contrasena", "value": "" },
     { "key": "id_medicamento", "value": "1" },
     { "key": "id_reporte", "value": "1" }
   ],
@@ -56,7 +58,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"correo\": \"paciente@saludtime.com\",\n  \"contrasena\": \"Salud1234\"\n}"
+              "raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}"
             },
             "url": "{{baseUrl}}/api/auth/login"
           }

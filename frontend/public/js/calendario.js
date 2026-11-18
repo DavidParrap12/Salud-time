@@ -147,7 +147,7 @@
 
     grid.innerHTML = html;
     resumen.textContent = totalDosis
-      ? `Este mes: ${totalDosis} dosis programadas, ${totalTomadas} tomadas y ${totalOmitidas} omitidas.`
+      ? `Este mes: ${totalDosis} ${totalDosis === 1 ? 'dosis programada' : 'dosis programadas'}, ${totalTomadas} ${totalTomadas === 1 ? 'tomada' : 'tomadas'} y ${totalOmitidas} ${totalOmitidas === 1 ? 'omitida' : 'omitidas'}.`
       : 'Este mes no tienes dosis programadas.';
 
     grid.querySelectorAll('[data-fecha]').forEach((boton) => {

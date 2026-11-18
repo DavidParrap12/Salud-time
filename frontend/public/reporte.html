@@ -61,6 +61,13 @@
             </form>
         </section>
 
+        <section class="content-card" id="panelHistorial">
+            <div class="card-header"><h2>Reportes guardados</h2></div>
+            <div class="report-history" id="listaReportes">
+                <p class="empty-state">Cargando reportes...</p>
+            </div>
+        </section>
+
         <section class="content-card" id="panelResultado" hidden>
             <div class="card-header">
                 <h2 id="tituloResultado">Resultado</h2>
@@ -97,14 +104,6 @@
                 <p class="muted" id="repNivel"></p>
             </div>
 
-            <div class="share-block">
-                <h3>Compartir reporte</h3>
-                <p class="muted">El envío por correo aún no está configurado.</p>
-                <form id="formCompartir" class="form-inline" novalidate>
-                    <input type="email" id="correo_destino" placeholder="cuidador@saludtime.com" required>
-                    <button type="submit" class="btn-secondary" id="btnCompartir" disabled>Correo no disponible</button>
-                </form>
-            </div>
         </section>
     </main>
 

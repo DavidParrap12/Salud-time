@@ -80,6 +80,16 @@ const generar = async ({ body: dto, usuario: actor }) => {
   return created(new ReporteResponseDTO(reporte), 'Reporte generado');
 };
 
+const listarPorUsuario = async ({ params, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, params.id_usuario);
+  const reportes = await Reporte.findAll({
+    where: { id_usuario: params.id_usuario },
+    order: [['id_reporte', 'DESC']],
+    limit: 10
+  });
+  return ok(ReporteResponseDTO.fromList(reportes));
+};
+
 const obtener = async ({ params, usuario: actor }) => {
   const reporte = await buscarReporte(params.id);
   await exigirAccesoPaciente(actor, reporte.id_usuario);
@@ -132,12 +142,14 @@ const compartir = async ({ body: dto, usuario: actor }) => {
 // ==========================================
 router.post('/compartir', endpoint(compartir, { body: CompartirReporteDTO }));
 router.post('/', endpoint(generar, { body: CrearReporteDTO }));
+router.get('/usuario/:id_usuario', validarId('id_usuario'), endpoint(listarPorUsuario));
 router.get('/:id/estadisticas', validarId(), endpoint(estadisticas));
 router.get('/:id/cumplimiento', validarId(), endpoint(cumplimiento));
 router.get('/:id', validarId(), endpoint(obtener));
 
 module.exports = router;
 module.exports.generar = generar;
+module.exports.listarPorUsuario = listarPorUsuario;
 module.exports.obtener = obtener;
 module.exports.estadisticas = estadisticas;
 module.exports.cumplimiento = cumplimiento;

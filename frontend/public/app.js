@@ -101,7 +101,8 @@
     }
 
     const resumen = dashboard.resumen || {};
-    document.getElementById('statMedicamentos').textContent = medicamentos.length;
+    document.getElementById('statMedicamentos').textContent =
+      new Set(tratamientos.filter((t) => t.estado).map((t) => t.id_medicamento)).size;
     document.getElementById('statTomadas').textContent = resumen.tomadas_hoy ?? 0;
     document.getElementById('statPendientes').textContent = resumen.pendientes_hoy ?? 0;
     document.getElementById('statAdherencia').textContent =
@@ -120,7 +121,7 @@
     const pendientes = hoy.filter((d) => d.estado === 'PENDIENTE');
     listaPendientes.innerHTML = pendientes.length
       ? pendientes.map((d) => pintarDosis(d, { conBoton: true })).join('')
-      : '<p class="empty-state">No quedan dosis pendientes hoy. 🎉</p>';
+      : '<p class="empty-state">No quedan dosis pendientes hoy.</p>';
 
     enlazarConfirmaciones();
   }

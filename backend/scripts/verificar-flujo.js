@@ -119,6 +119,18 @@ async function main() {
   assert.equal((await DosisProgramada.findByPk(dosis.id_dosis_programada)).estado, 'TOMADA',
     'Actualizar el horario debe conservar el historial de dosis tomadas');
 
+  const reporte = await pedir('/api/reportes', {
+    method: 'POST', token,
+    body: { id_usuario: idPaciente, fecha_inicio: fechaLocal(), fecha_fin: fechaLocal() }
+  });
+  assert.equal(reporte.status, 201, JSON.stringify(reporte.payload));
+  const historialReportes = await pedir(`/api/reportes/usuario/${idPaciente}`, { token });
+  assert.equal(historialReportes.status, 200, JSON.stringify(historialReportes.payload));
+  assert.ok(historialReportes.payload.data.some((item) => item.id_reporte === reporte.payload.data.id_reporte),
+    'El reporte debe aparecer al volver a consultar el historial');
+  const reporteAjeno = await pedir(`/api/reportes/usuario/${idPaciente}`, { token: otroToken });
+  assert.equal(reporteAjeno.status, 403, 'Otro paciente no debe ver el historial');
+
   console.log('OK: frontend proxy → API → PostgreSQL → lectura posterior.');
   console.log(`IDs persistidos: usuario=${idPaciente}, medicamento=${idMedicamento}, tratamiento=${idTratamiento}, recordatorio=${idRecordatorio}, dosis=${dosis.id_dosis_programada}`);
 }

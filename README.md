@@ -158,6 +158,7 @@ Authorization: Bearer <token>
 | GET    | `/api/calendario/:id_usuario?mes=&anio=`  | Dosis agrupadas por día del mes.         |
 | GET    | `/api/calendario/:id_usuario/fecha?fecha=` | Dosis de una fecha.                     |
 | POST   | `/api/reportes`                           | Genera un reporte de adherencia.         |
+| GET    | `/api/reportes/usuario/:id_usuario`      | Lista los reportes guardados.            |
 | GET    | `/api/reportes/:id/estadisticas`          | Estadísticas del reporte.                |
 | GET    | `/api/reportes/:id/cumplimiento`          | Nivel de cumplimiento.                   |
 | POST   | `/api/reportes/compartir`                 | Devuelve 501 hasta configurar el correo. |

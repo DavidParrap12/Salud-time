@@ -29,6 +29,12 @@
     return `${nombre} — ${tratamiento.dosis}`;
   }
 
+  function etiquetaDias(valor) {
+    const dias = String(valor || '').split(',').filter(Boolean);
+    if (dias.length === 7) return 'Todos los días';
+    return dias.map((dia) => ({ LUN: 'Lun', MAR: 'Mar', MIE: 'Mié', JUE: 'Jue', VIE: 'Vie', SAB: 'Sáb', DOM: 'Dom' })[dia] || dia).join(', ');
+  }
+
   function fila(item) {
     const tratamiento = tratamientos.find((t) => t.id_tratamiento === item.id_tratamiento);
     const etiqueta = tratamiento
@@ -40,8 +46,7 @@
         <td>
           <strong>${SaludTime.escapar(etiqueta)}</strong>
         </td>
-        <td><span class="badge badge-ok">${SaludTime.formatearHora(item.hora)}</span></td>
-        <td>${SaludTime.escapar(item.dias_semana || '—')}</td>
+        <td><span class="badge badge-ok">${SaludTime.formatearHora(item.hora)}</span><br><span class="muted small">${SaludTime.escapar(etiquetaDias(item.dias_semana))}</span></td>
         <td class="small">
           ${SaludTime.formatearFecha(item.fecha_inicio)}
           ${item.fecha_fin ? ` → ${SaludTime.formatearFecha(item.fecha_fin)}` : ''}
@@ -56,7 +61,19 @@
   function enlazarAcciones() {
     document.querySelectorAll('[data-eliminar]').forEach((boton) => {
       boton.addEventListener('click', async () => {
-        if (!window.confirm('¿Desactivar este recordatorio?')) return;
+        if (boton.dataset.confirmando !== '1') {
+          boton.dataset.confirmando = '1';
+          boton.textContent = 'Confirmar baja';
+          SaludTime.mostrarMensaje('mensaje', 'Pulse «Confirmar baja» para desactivar el recordatorio.', 'error');
+          window.setTimeout(() => {
+            if (boton.isConnected && boton.dataset.confirmando === '1') {
+              boton.dataset.confirmando = '';
+              boton.textContent = 'Desactivar';
+            }
+          }, 6000);
+          return;
+        }
+        SaludTime.ocultarMensaje('mensaje');
         boton.disabled = true;
         try {
           await SaludTime.api(`/recordatorios/${boton.dataset.eliminar}`, { method: 'DELETE' });
@@ -65,13 +82,15 @@
         } catch (error) {
           SaludTime.mostrarMensaje('mensaje', error.message, 'error');
           boton.disabled = false;
+          boton.dataset.confirmando = '';
+          boton.textContent = 'Desactivar';
         }
       });
     });
   }
 
   async function cargar() {
-    tabla.innerHTML = '<tr><td colspan="5" class="empty-state">Cargando...</td></tr>';
+    tabla.innerHTML = '<tr><td colspan="4" class="empty-state">Cargando...</td></tr>';
 
     const [listaTratamientos, medicamentos] = await Promise.all([
       SaludTime.api(`/tratamientos/paciente/${idUsuario}`),
@@ -94,10 +113,10 @@
 
     recordatorios = listas.flat().filter((r) => r.estado);
 
-    contador.textContent = `${recordatorios.length} recordatorio(s)`;
+    contador.textContent = `${recordatorios.length} ${recordatorios.length === 1 ? 'recordatorio' : 'recordatorios'}`;
     tabla.innerHTML = recordatorios.length
       ? recordatorios.map(fila).join('')
-      : '<tr><td colspan="5" class="empty-state">No hay recordatorios activos.</td></tr>';
+      : '<tr><td colspan="4" class="empty-state">No hay recordatorios activos.</td></tr>';
 
     enlazarAcciones();
   }
@@ -154,6 +173,6 @@
     await cargar();
   } catch (error) {
     SaludTime.mostrarMensaje('mensaje', error.message, 'error');
-    tabla.innerHTML = '<tr><td colspan="5" class="empty-state">No se pudieron cargar los recordatorios.</td></tr>';
+    tabla.innerHTML = '<tr><td colspan="4" class="empty-state">No se pudieron cargar los recordatorios.</td></tr>';
   }
 })();

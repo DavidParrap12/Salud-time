@@ -230,6 +230,9 @@ async function principal() {
 
   const idReporte = reporte.data?.data?.id_reporte;
   if (idReporte) {
+    await probar('Reportes guardados del paciente', 'GET', '/api/reportes/usuario/1', {
+      headers: auth()
+    });
     await probar('Obtener reporte', 'GET', `/api/reportes/${idReporte}`, { headers: auth() });
     await probar('Estadísticas del reporte', 'GET', `/api/reportes/${idReporte}/estadisticas`, {
       headers: auth()

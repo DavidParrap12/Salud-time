@@ -23,7 +23,7 @@
     if (medicamentos.some((m) => String(m.id_medicamento) === seleccionado)) select.value = seleccionado;
 
     const activos = tratamientos.filter((t) => t.estado);
-    document.getElementById('contadorTratamientos').textContent = `${activos.length} tratamiento(s)`;
+    document.getElementById('contadorTratamientos').textContent = `${activos.length} ${activos.length === 1 ? 'tratamiento' : 'tratamientos'}`;
     tabla.innerHTML = activos.length ? activos.map((t) => `
       <tr>
         <td>${SaludTime.escapar(porId.get(t.id_medicamento)?.nombre || `Medicamento #${t.id_medicamento}`)}</td>

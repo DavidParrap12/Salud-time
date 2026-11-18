@@ -81,7 +81,19 @@
 
     document.querySelectorAll('[data-eliminar]').forEach((boton) => {
       boton.addEventListener('click', async () => {
-        if (!window.confirm('¿Desactivar este medicamento?')) return;
+        if (boton.dataset.confirmando !== '1') {
+          boton.dataset.confirmando = '1';
+          boton.textContent = 'Confirmar baja';
+          SaludTime.mostrarMensaje('mensaje', 'Pulse «Confirmar baja» para desactivar el medicamento.', 'error');
+          window.setTimeout(() => {
+            if (boton.isConnected && boton.dataset.confirmando === '1') {
+              boton.dataset.confirmando = '';
+              boton.textContent = 'Desactivar';
+            }
+          }, 6000);
+          return;
+        }
+        SaludTime.ocultarMensaje('mensaje');
         boton.disabled = true;
         try {
           await SaludTime.api(`/medicamentos/${boton.dataset.eliminar}`, { method: 'DELETE' });
@@ -90,6 +102,8 @@
         } catch (error) {
           SaludTime.mostrarMensaje('mensaje', error.message, 'error');
           boton.disabled = false;
+          boton.dataset.confirmando = '';
+          boton.textContent = 'Desactivar';
         }
       });
     });
@@ -99,7 +113,7 @@
     tabla.innerHTML = '<tr><td colspan="4" class="empty-state">Cargando...</td></tr>';
     medicamentos = await SaludTime.api('/medicamentos');
 
-    contador.textContent = `${medicamentos.length} medicamento(s)`;
+    contador.textContent = `${medicamentos.length} ${medicamentos.length === 1 ? 'medicamento' : 'medicamentos'}`;
     window.dispatchEvent(new CustomEvent('medicamentosActualizados'));
     tabla.innerHTML = medicamentos.length
       ? medicamentos.map(fila).join('')

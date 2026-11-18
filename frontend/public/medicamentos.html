@@ -100,6 +100,43 @@
                 </div>
             </section>
         </div>
+
+        <section class="content-card treatment-section">
+            <div class="card-header">
+                <h2>Mis tratamientos</h2>
+                <span class="muted" id="contadorTratamientos"></span>
+            </div>
+            <p class="muted">Asocia un medicamento a tu tratamiento para programar recordatorios.</p>
+            <div class="alert" id="mensajeTratamiento" hidden></div>
+            <form id="formTratamiento" class="form-grid" novalidate>
+                <div class="form-field">
+                    <label for="medicamentoTratamiento">Medicamento *</label>
+                    <select id="medicamentoTratamiento" required></select>
+                </div>
+                <div class="form-field">
+                    <label for="dosisTratamiento">Dosis *</label>
+                    <input type="text" id="dosisTratamiento" maxlength="100" placeholder="Ej: Una tableta cada día" required>
+                </div>
+                <div class="form-field">
+                    <label for="inicioTratamiento">Fecha de inicio *</label>
+                    <input type="date" id="inicioTratamiento" required>
+                </div>
+                <div class="form-field">
+                    <label for="finTratamiento">Fecha de fin (opcional)</label>
+                    <input type="date" id="finTratamiento">
+                </div>
+                <div class="form-actions form-field-full">
+                    <button type="submit" class="btn-primary" id="btnGuardarTratamiento">Crear tratamiento</button>
+                    <a href="recordatorios.html" class="btn-secondary">Ir a recordatorios</a>
+                </div>
+            </form>
+            <div class="table-wrapper treatment-list">
+                <table class="tabla">
+                    <thead><tr><th>Medicamento</th><th>Dosis</th><th>Inicio</th><th>Fin</th></tr></thead>
+                    <tbody id="tablaTratamientos"></tbody>
+                </table>
+            </div>
+        </section>
     </main>
 
     <footer>
@@ -108,5 +145,6 @@
 
     <script src="js/api.js"></script>
     <script src="js/medicamentos.js"></script>
+    <script src="js/tratamientos.js"></script>
 </body>
 </html>

@@ -8,6 +8,8 @@ const AsignarRolDTO = require('../dtos/rol/AsignarRolDTO');
 const AsignacionRolResponseDTO = require('../dtos/rol/AsignacionRolResponseDTO');
 const { ok, created } = require('../views/response');
 const { ConflictError, NotFoundError } = require('../errors/AppError');
+const { autorizarRoles } = require('../middlewares/authMiddleware');
+const { exigirPropietario } = require('../utils/acceso');
 
 const router = Router();
 
@@ -20,7 +22,8 @@ const listar = async () => {
   return ok(UsuarioResponseDTO.fromList(usuarios));
 };
 
-const obtener = async ({ params }) => {
+const obtener = async ({ params, usuario: actor }) => {
+  exigirPropietario(actor, params.id);
   const usuario = await Usuario.findByPk(params.id, {
     include: [{ model: Rol, as: 'roles' }]
   });
@@ -28,7 +31,8 @@ const obtener = async ({ params }) => {
   return ok(new UsuarioResponseDTO(usuario));
 };
 
-const actualizar = async ({ params, body: dto }) => {
+const actualizar = async ({ params, body: dto, usuario: actor }) => {
+  exigirPropietario(actor, params.id);
   const usuario = await Usuario.findByPk(params.id);
   if (!usuario) throw new NotFoundError('Usuario no encontrado');
 
@@ -73,11 +77,11 @@ const asignarRol = async ({ params, body: dto }) => {
 // ==========================================
 // Endpoints definidos en el Controller
 // ==========================================
-router.get('/', endpoint(listar));
+router.get('/', autorizarRoles('ADMIN'), endpoint(listar));
 router.get('/:id', validarId(), endpoint(obtener));
 router.put('/:id', validarId(), endpoint(actualizar, { body: ActualizarUsuarioDTO }));
-router.delete('/:id', validarId(), endpoint(desactivar));
-router.post('/:id/roles', validarId(), endpoint(asignarRol, { body: AsignarRolDTO }));
+router.delete('/:id', autorizarRoles('ADMIN'), validarId(), endpoint(desactivar));
+router.post('/:id/roles', autorizarRoles('ADMIN'), validarId(), endpoint(asignarRol, { body: AsignarRolDTO }));
 
 module.exports = router;
 module.exports.listar = listar;

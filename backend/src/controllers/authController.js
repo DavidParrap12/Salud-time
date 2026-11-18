@@ -10,8 +10,9 @@ const RecuperarPasswordDTO = require('../dtos/auth/RecuperarPasswordDTO');
 const LoginResponseDTO = require('../dtos/auth/LoginResponseDTO');
 const UsuarioResponseDTO = require('../dtos/usuario/UsuarioResponseDTO');
 const { created, ok } = require('../views/response');
-const { ConflictError, NotFoundError, UnauthorizedError } = require('../errors/AppError');
+const { AppError, ConflictError, NotFoundError, UnauthorizedError } = require('../errors/AppError');
 const enTransaccion = require('../utils/transaccion');
+const { autenticar, autorizarRoles } = require('../middlewares/authMiddleware');
 
 const router = Router();
 
@@ -119,18 +120,14 @@ const login = async ({ body: dto }) => {
 };
 
 const recuperarPassword = async ({ body: dto }) => {
-  const usuario = await Usuario.findOne({ where: { correo: dto.correo } });
-  if (!usuario) throw new NotFoundError('Correo no registrado');
-
-  // Aquí se generaría un token temporal y se enviaría por correo.
-  return ok(null, 'Se envió un enlace de recuperación al correo');
+  throw new AppError(501, 'La recuperación de contraseña aún no está configurada');
 };
 
 // ==========================================
 // Endpoints definidos en el Controller
 // ==========================================
 router.post('/registro/paciente', endpoint(registrarPaciente, { body: RegistroPacienteDTO }));
-router.post('/registro/especialista', endpoint(registrarEspecialista, { body: RegistroEspecialistaDTO }));
+router.post('/registro/especialista', autenticar, autorizarRoles('ADMIN'), endpoint(registrarEspecialista, { body: RegistroEspecialistaDTO }));
 router.post('/login', endpoint(login, { body: LoginDTO }));
 router.post('/recuperar-password', endpoint(recuperarPassword, { body: RecuperarPasswordDTO }));
 

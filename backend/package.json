@@ -7,10 +7,12 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "db:init": "node scripts/inicializar-bd.js",
     "seed": "node seed.js",
     "demo": "node demo.js",
     "verify": "node scripts/verificar-http.js",
-    "verify:db": "node scripts/verificar-bd.js"
+    "verify:db": "node scripts/verificar-bd.js",
+    "verify:flow": "node scripts/verificar-flujo.js"
   },
   "keywords": [],
   "author": "",
@@ -21,12 +23,9 @@
     "dotenv": "^18.0.7",
     "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
-    "nodemailer": "^10.1.0",
     "pg": "^8.23.1",
     "pg-hstore": "^2.3.4",
-    "psql": "^0.0.1",
-    "sequelize": "^6.37.8",
-    "swagger-ui-express": "^5.0.1"
+    "sequelize": "^6.37.8"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

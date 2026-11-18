@@ -9,6 +9,8 @@ const DosisProgramadaResponseDTO = require('../dtos/dosis/DosisProgramadaRespons
 const { ok } = require('../views/response');
 const { Op } = require('sequelize');
 const { fechaLocal } = require('../utils/fechas');
+const { exigirAccesoPaciente } = require('../utils/acceso');
+const { asegurarDosisPaciente } = require('../utils/programarDosis');
 
 const router = Router();
 
@@ -54,11 +56,13 @@ const includePorUsuario = (idUsuario) => [{
 // Orquestación de los casos de uso
 // ==========================================
 
-const obtener = async ({ params, query }) => {
+const obtener = async ({ params, query, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, params.id_usuario);
   const { mes, anio } = query;
 
   const inicio = new Date(anio, mes - 1, 1);
   const fin = new Date(anio, mes, 0, 23, 59, 59);
+  await asegurarDosisPaciente(params.id_usuario, inicio, fin);
 
   const tratamientos = await dosisDelPaciente(params.id_usuario, {
     fecha_hora: { [Op.between]: [inicio, fin] }
@@ -80,12 +84,14 @@ const obtener = async ({ params, query }) => {
   }));
 };
 
-const porFecha = async ({ params, query }) => {
+const porFecha = async ({ params, query, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, params.id_usuario);
   const { fecha } = query;
 
   const [anio, mes, dia] = String(fecha).split('-').map(Number);
   const inicio = new Date(anio, mes - 1, dia, 0, 0, 0);
   const fin = new Date(anio, mes - 1, dia, 23, 59, 59);
+  await asegurarDosisPaciente(params.id_usuario, inicio, fin);
 
   const tratamientos = await dosisDelPaciente(params.id_usuario, {
     fecha_hora: { [Op.between]: [inicio, fin] }
@@ -94,7 +100,8 @@ const porFecha = async ({ params, query }) => {
   return ok(DosisProgramadaResponseDTO.fromList(aplanarDosis(tratamientos)));
 };
 
-const tomadas = async ({ params }) => {
+const tomadas = async ({ params, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, params.id_usuario);
   const dosis = await DosisProgramada.findAll({
     where: { estado: 'TOMADA' },
     include: includePorUsuario(params.id_usuario)
@@ -102,7 +109,8 @@ const tomadas = async ({ params }) => {
   return ok(DosisProgramadaResponseDTO.fromList(dosis));
 };
 
-const omitidas = async ({ params }) => {
+const omitidas = async ({ params, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, params.id_usuario);
   const dosis = await DosisProgramada.findAll({
     where: { estado: 'OMITIDA' },
     include: includePorUsuario(params.id_usuario)
@@ -110,7 +118,8 @@ const omitidas = async ({ params }) => {
   return ok(DosisProgramadaResponseDTO.fromList(dosis));
 };
 
-const historial = async ({ params }) => {
+const historial = async ({ params, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, params.id_usuario);
   const dosis = await DosisProgramada.findAll({
     include: includePorUsuario(params.id_usuario),
     order: [['fecha_hora', 'DESC']]

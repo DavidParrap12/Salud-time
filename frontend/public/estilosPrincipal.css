@@ -484,6 +484,10 @@ footer {
     align-items: start;
 }
 
+.treatment-section { margin-top: 20px; }
+.treatment-section > .muted { margin-bottom: 20px; }
+.treatment-list { margin-top: 24px; }
+
 .content-card + .content-card {
     margin-top: 20px;
 }

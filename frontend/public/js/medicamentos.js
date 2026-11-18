@@ -100,6 +100,7 @@
     medicamentos = await SaludTime.api('/medicamentos');
 
     contador.textContent = `${medicamentos.length} medicamento(s)`;
+    window.dispatchEvent(new CustomEvent('medicamentosActualizados'));
     tabla.innerHTML = medicamentos.length
       ? medicamentos.map(fila).join('')
       : '<tr><td colspan="4" class="empty-state">Aún no hay medicamentos registrados.</td></tr>';

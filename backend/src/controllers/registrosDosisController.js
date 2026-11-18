@@ -6,6 +6,7 @@ const RegistroDosisResponseDTO = require('../dtos/registro/RegistroDosisResponse
 const RegistrosQueryDTO = require('../dtos/registro/RegistrosQueryDTO');
 const { ok } = require('../views/response');
 const { NotFoundError } = require('../errors/AppError');
+const { exigirPropietario } = require('../utils/acceso');
 
 const router = Router();
 
@@ -13,8 +14,9 @@ const router = Router();
 // Orquestación de los casos de uso
 // ==========================================
 
-const listar = async ({ query }) => {
-  const { id_paciente } = query;
+const listar = async ({ query, usuario: actor }) => {
+  const id_paciente = query.id_paciente || actor.id_usuario;
+  exigirPropietario(actor, id_paciente);
 
   const include = id_paciente
     ? [{
@@ -39,9 +41,14 @@ const listar = async ({ query }) => {
   return ok(RegistroDosisResponseDTO.fromList(registros));
 };
 
-const obtener = async ({ params }) => {
-  const registro = await RegistroDosis.findByPk(params.id);
+const obtener = async ({ params, usuario: actor }) => {
+  const registro = await RegistroDosis.findByPk(params.id, {
+    include: [{ model: DosisProgramada, as: 'dosis', include: [{
+      model: Recordatorio, as: 'recordatorio', include: [{ model: Tratamiento, as: 'tratamiento' }]
+    }] }]
+  });
   if (!registro) throw new NotFoundError('Registro no encontrado');
+  exigirPropietario(actor, registro.dosis.recordatorio.tratamiento.id_paciente);
   return ok(new RegistroDosisResponseDTO(registro));
 };
 

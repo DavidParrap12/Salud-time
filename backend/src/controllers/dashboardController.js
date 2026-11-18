@@ -9,11 +9,14 @@ const DosisProgramadaResponseDTO = require('../dtos/dosis/DosisProgramadaRespons
 const { ok } = require('../views/response');
 const { NotFoundError } = require('../errors/AppError');
 const { rangoDelDia } = require('../utils/fechas');
+const { exigirAccesoPaciente } = require('../utils/acceso');
+const { asegurarDosisPaciente } = require('../utils/programarDosis');
 
 const router = Router();
 
 const dosisDelDia = async (idUsuario) => {
   const { inicio, fin } = rangoDelDia();
+  await asegurarDosisPaciente(idUsuario, inicio, fin);
 
   return DosisProgramada.findAll({
     where: { fecha_hora: { [Op.between]: [inicio, fin] } },
@@ -35,7 +38,8 @@ const dosisDelDia = async (idUsuario) => {
 // Orquestación de los casos de uso
 // ==========================================
 
-const obtener = async ({ params }) => {
+const obtener = async ({ params, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, params.id_usuario);
   const usuario = await Usuario.findByPk(params.id_usuario);
   if (!usuario) throw new NotFoundError('Usuario no encontrado');
 
@@ -58,12 +62,18 @@ const obtener = async ({ params }) => {
   }));
 };
 
-const medicamentosHoy = async ({ params }) => {
+const medicamentosHoy = async ({ params, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, params.id_usuario);
   const dosisHoy = await dosisDelDia(params.id_usuario);
   return ok(DosisProgramadaResponseDTO.fromList(dosisHoy));
 };
 
-const dosisPendientes = async ({ params }) => {
+const dosisPendientes = async ({ params, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, params.id_usuario);
+  const { inicio } = rangoDelDia();
+  const fin = new Date(inicio);
+  fin.setDate(fin.getDate() + 30);
+  await asegurarDosisPaciente(params.id_usuario, inicio, fin);
   const dosis = await DosisProgramada.findAll({
     where: { estado: 'PENDIENTE' },
     include: [{

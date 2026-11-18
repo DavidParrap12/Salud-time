@@ -8,6 +8,7 @@ const CuidadorResponseDTO = require('../dtos/cuidador/CuidadorResponseDTO');
 const { ok, created } = require('../views/response');
 const { BusinessError, ConflictError, NotFoundError } = require('../errors/AppError');
 const enTransaccion = require('../utils/transaccion');
+const { exigirPropietario } = require('../utils/acceso');
 
 const router = Router();
 
@@ -15,14 +16,16 @@ const router = Router();
 // Orquestación de los casos de uso
 // ==========================================
 
-const listarPorPaciente = async ({ params }) => {
+const listarPorPaciente = async ({ params, usuario: actor }) => {
+  exigirPropietario(actor, params.id_paciente);
   const cuidadores = await CuidadorPaciente.findAll({
     where: { id_paciente: params.id_paciente, estado: true }
   });
   return ok(CuidadorResponseDTO.fromList(cuidadores));
 };
 
-const crear = async ({ body: dto }) => {
+const crear = async ({ body: dto, usuario: actor }) => {
+  exigirPropietario(actor, dto.id_paciente);
   const paciente = await Usuario.findByPk(dto.id_paciente);
   if (!paciente) throw new NotFoundError('Paciente no encontrado');
 
@@ -66,9 +69,10 @@ const crear = async ({ body: dto }) => {
   return created(new CuidadorResponseDTO(relacion), 'Cuidador registrado');
 };
 
-const actualizar = async ({ body: dto, params }) => {
+const actualizar = async ({ body: dto, params, usuario: actor }) => {
   const relacion = await CuidadorPaciente.findByPk(params.id);
   if (!relacion) throw new NotFoundError('Relación no encontrada');
+  exigirPropietario(actor, relacion.id_paciente);
 
   await relacion.update({
     parentesco: dto.parentesco ?? relacion.parentesco,
@@ -78,9 +82,10 @@ const actualizar = async ({ body: dto, params }) => {
   return ok(new CuidadorResponseDTO(relacion), 'Cuidador actualizado');
 };
 
-const eliminar = async ({ params }) => {
+const eliminar = async ({ params, usuario: actor }) => {
   const relacion = await CuidadorPaciente.findByPk(params.id);
   if (!relacion) throw new NotFoundError('Relación no encontrada');
+  exigirPropietario(actor, relacion.id_paciente);
 
   await relacion.destroy();
   return ok(null, 'Cuidador eliminado');

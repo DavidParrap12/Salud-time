@@ -17,19 +17,19 @@ const OmitirDosisDTO = require('../dtos/dosis/OmitirDosisDTO');
 const GenerarAlertaDTO = require('../dtos/dosis/GenerarAlertaDTO');
 const NotificacionResponseDTO = require('../dtos/notificacion/NotificacionResponseDTO');
 const { ok, created } = require('../views/response');
-const { BusinessError, NotFoundError } = require('../errors/AppError');
+const { BusinessError, ForbiddenError, NotFoundError } = require('../errors/AppError');
 const enTransaccion = require('../utils/transaccion');
+const { exigirPropietario } = require('../utils/acceso');
+const { asegurarDosisPaciente } = require('../utils/programarDosis');
 
 const router = Router();
 
-const buscarDosis = async (id, { conRelaciones = false, transaction } = {}) => {
-  const include = conRelaciones
-    ? [{
-        model: Recordatorio,
-        as: 'recordatorio',
-        include: [{ model: Tratamiento, as: 'tratamiento' }]
-      }]
-    : [];
+const buscarDosis = async (id, { transaction } = {}) => {
+  const include = [{
+    model: Recordatorio,
+    as: 'recordatorio',
+    include: [{ model: Tratamiento, as: 'tratamiento' }]
+  }];
 
   const dosis = await DosisProgramada.findByPk(id, { include, transaction });
   if (!dosis) throw new NotFoundError('Dosis no encontrada');
@@ -41,11 +41,14 @@ const buscarDosis = async (id, { conRelaciones = false, transaction } = {}) => {
 // Orquestación de los casos de uso
 // ==========================================
 
-const listarPendientes = async ({ query }) => {
-  const { id_paciente } = query;
+const listarPendientes = async ({ query, usuario: actor }) => {
+  const id_paciente = query.id_paciente || actor.id_usuario;
+  exigirPropietario(actor, id_paciente);
+  const fin = new Date();
+  fin.setDate(fin.getDate() + 30);
+  await asegurarDosisPaciente(id_paciente, new Date(), fin);
 
-  const include = id_paciente
-    ? [{
+  const include = [{
         model: Recordatorio,
         as: 'recordatorio',
         required: true,
@@ -55,8 +58,7 @@ const listarPendientes = async ({ query }) => {
           where: { id_paciente },
           required: true
         }]
-      }]
-    : [];
+      }];
 
   const dosis = await DosisProgramada.findAll({
     where: { estado: 'PENDIENTE' },
@@ -66,9 +68,10 @@ const listarPendientes = async ({ query }) => {
   return ok(DosisProgramadaResponseDTO.fromList(dosis));
 };
 
-const confirmar = async ({ params, body: dto }) => {
+const confirmar = async ({ params, body: dto, usuario: actor }) => {
   const resultado = await enTransaccion(async (transaction) => {
     const dosis = await buscarDosis(params.id, { transaction });
+    exigirPropietario(actor, dosis.recordatorio.tratamiento.id_paciente);
 
     await dosis.update({ estado: 'TOMADA' }, { transaction });
 
@@ -84,9 +87,10 @@ const confirmar = async ({ params, body: dto }) => {
   return created(new DosisRegistradaResponseDTO(resultado), 'Dosis confirmada');
 };
 
-const omitir = async ({ params, body: dto }) => {
+const omitir = async ({ params, body: dto, usuario: actor }) => {
   const resultado = await enTransaccion(async (transaction) => {
-    const dosis = await buscarDosis(params.id, { conRelaciones: true, transaction });
+    const dosis = await buscarDosis(params.id, { transaction });
+    exigirPropietario(actor, dosis.recordatorio.tratamiento.id_paciente);
 
     await dosis.update({ estado: 'OMITIDA' }, { transaction });
 
@@ -120,9 +124,23 @@ const omitir = async ({ params, body: dto }) => {
   return created(new DosisRegistradaResponseDTO(resultado), 'Dosis registrada como omitida');
 };
 
-const generarAlerta = async ({ body: dto }) => {
-  const dosis = await DosisProgramada.findByPk(dto.id_dosis_programada);
+const generarAlerta = async ({ body: dto, usuario: actor }) => {
+  const dosis = await DosisProgramada.findByPk(dto.id_dosis_programada, {
+    include: [{ model: Recordatorio, as: 'recordatorio', include: [{ model: Tratamiento, as: 'tratamiento' }] }]
+  });
   if (!dosis) throw new NotFoundError('Dosis no encontrada');
+  exigirPropietario(actor, dosis.recordatorio.tratamiento.id_paciente);
+
+  if (Number(dto.id_usuario_destinatario) !== Number(actor.id_usuario)) {
+    const relacion = await CuidadorPaciente.findOne({
+      where: {
+        id_paciente: actor.id_usuario,
+        id_cuidador: dto.id_usuario_destinatario,
+        estado: true
+      }
+    });
+    if (!relacion) throw new ForbiddenError('El destinatario no es un cuidador autorizado');
+  }
 
   const notificacion = await Notificacion.create({
     id_dosis_programada: dosis.id_dosis_programada,

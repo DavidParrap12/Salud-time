@@ -7,6 +7,7 @@ const ActualizarTratamientoDTO = require('../dtos/tratamiento/ActualizarTratamie
 const TratamientoResponseDTO = require('../dtos/tratamiento/TratamientoResponseDTO');
 const { ok, created } = require('../views/response');
 const { NotFoundError } = require('../errors/AppError');
+const { exigirPropietario, exigirAccesoPaciente } = require('../utils/acceso');
 
 const router = Router();
 
@@ -14,20 +15,23 @@ const router = Router();
 // Orquestación de los casos de uso
 // ==========================================
 
-const listarPorPaciente = async ({ params }) => {
+const listarPorPaciente = async ({ params, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, params.id_paciente);
   const tratamientos = await Tratamiento.findAll({
     where: { id_paciente: params.id_paciente }
   });
   return ok(TratamientoResponseDTO.fromList(tratamientos));
 };
 
-const obtener = async ({ params }) => {
+const obtener = async ({ params, usuario: actor }) => {
   const tratamiento = await Tratamiento.findByPk(params.id);
   if (!tratamiento) throw new NotFoundError('Tratamiento no encontrado');
+  await exigirAccesoPaciente(actor, tratamiento.id_paciente);
   return ok(new TratamientoResponseDTO(tratamiento));
 };
 
-const crear = async ({ body: dto }) => {
+const crear = async ({ body: dto, usuario: actor }) => {
+  exigirPropietario(actor, dto.id_paciente);
   const paciente = await Usuario.findByPk(dto.id_paciente);
   if (!paciente) throw new NotFoundError('Paciente no encontrado');
 
@@ -47,9 +51,10 @@ const crear = async ({ body: dto }) => {
   return created(new TratamientoResponseDTO(tratamiento), 'Tratamiento creado');
 };
 
-const actualizar = async ({ params, body: dto }) => {
+const actualizar = async ({ params, body: dto, usuario: actor }) => {
   const tratamiento = await Tratamiento.findByPk(params.id);
   if (!tratamiento) throw new NotFoundError('Tratamiento no encontrado');
+  exigirPropietario(actor, tratamiento.id_paciente);
 
   await tratamiento.update({
     dosis: dto.dosis ?? tratamiento.dosis,
@@ -61,9 +66,10 @@ const actualizar = async ({ params, body: dto }) => {
   return ok(new TratamientoResponseDTO(tratamiento), 'Tratamiento actualizado');
 };
 
-const desactivar = async ({ params }) => {
+const desactivar = async ({ params, usuario: actor }) => {
   const tratamiento = await Tratamiento.findByPk(params.id);
   if (!tratamiento) throw new NotFoundError('Tratamiento no encontrado');
+  exigirPropietario(actor, tratamiento.id_paciente);
 
   await tratamiento.update({ estado: false });
   return ok(null, 'Tratamiento desactivado');

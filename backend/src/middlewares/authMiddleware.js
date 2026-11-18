@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { Usuario } = require('../models');
+const { Usuario, Rol } = require('../models');
 const { UnauthorizedError, ForbiddenError } = require('../errors/AppError');
 
 /**
@@ -35,7 +35,9 @@ const autenticar = async (req, res, next) => {
       throw new UnauthorizedError('Token de autenticación inválido');
     }
 
-    const usuario = await Usuario.findByPk(decoded.id_usuario);
+    const usuario = await Usuario.findByPk(decoded.id_usuario, {
+      include: [{ model: Rol, as: 'roles' }]
+    });
     if (!usuario) {
       throw new UnauthorizedError('Usuario asociado al token no existe');
     }
@@ -47,7 +49,7 @@ const autenticar = async (req, res, next) => {
       id_usuario: usuario.id_usuario,
       correo: usuario.correo,
       nombre_completo: usuario.nombre_completo,
-      roles: decoded.roles || []
+      roles: usuario.roles.map((rol) => rol.nombre)
     };
 
     next();

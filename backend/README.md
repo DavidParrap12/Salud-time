@@ -34,7 +34,13 @@ JWT_SECRET=una_clave_segura
 PORT=3000
 ```
 
-3. Cree las tablas y cargue los datos de demostración:
+3. Cree las tablas y roles sin borrar registros:
+
+```powershell
+npm run db:init
+```
+
+Opcionalmente, cargue los datos de demostración:
 
 ```powershell
 npm run seed
@@ -76,15 +82,15 @@ npm run seed      # datos limpios (opcional, recomendado)
 npm run verify
 ```
 
-`npm run verify` ejecuta `scripts/verificar-http.js` y hace **41 peticiones
-HTTP reales** contra la API. Comprueba respuestas correctas (`200`, `201`) y
-errores controlados (`400`, `401`, `404`, `409`).
+`npm run verify` ejecuta `scripts/verificar-http.js` y hace peticiones
+HTTP reales contra la API. Comprueba respuestas correctas (`200`, `201`) y
+errores controlados (`400`, `401`, `403`, `404`, `409`, `501`).
 
 Salida esperada:
 
 ```text
 ============================================================
-Resultado: 41/41 pruebas correctas
+Resultado: 43/43 pruebas correctas
 Todas las peticiones HTTP respondieron como se esperaba.
 ```
 
@@ -423,7 +429,7 @@ Los errores usan el mismo formato con `success: false` y `detalles`.
 | GET    | `/api/reportes/:id`              | Consulta el reporte guardado |
 | GET    | `/api/reportes/:id/estadisticas` | Estadísticas del reporte     |
 | GET    | `/api/reportes/:id/cumplimiento` | Nivel de cumplimiento       |
-| POST   | `/api/reportes/compartir`        | Comparte reporte por correo  |
+| POST   | `/api/reportes/compartir`        | Devuelve 501 hasta configurar el correo |
 
 Los reportes se guardan en la tabla `reporte`, por lo que consultarlos después
 devuelve exactamente los mismos datos con los que se generaron.
@@ -483,7 +489,8 @@ backend/
 ├── postman/
 │   └── SaludTime.postman_collection.json
 ├── scripts/
-│   ├── verificar-http.js        # 41 peticiones HTTP de verificación
+│   ├── verificar-http.js        # Verificación de endpoints HTTP
+│   ├── verificar-flujo.js       # Proxy, API y persistencia (base *_test)
 │   └── verificar-bd.js          # 24 controles de datos en PostgreSQL
 └── src/
     ├── config/database.js

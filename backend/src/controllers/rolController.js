@@ -7,6 +7,7 @@ const RolResponseDTO = require('../dtos/rol/RolResponseDTO');
 const AsignacionRolResponseDTO = require('../dtos/rol/AsignacionRolResponseDTO');
 const { ok, created } = require('../views/response');
 const { ConflictError, NotFoundError } = require('../errors/AppError');
+const { autorizarRoles } = require('../middlewares/authMiddleware');
 
 const router = Router();
 
@@ -51,7 +52,7 @@ const asignarRol = async ({ params, body: dto }) => {
 // ==========================================
 router.get('/', endpoint(obtenerTodos));
 router.get('/:id', validarId(), endpoint(obtenerPorId));
-router.post('/asignar/:id_usuario', validarId('id_usuario'), endpoint(asignarRol, { body: AsignarRolDTO }));
+router.post('/asignar/:id_usuario', autorizarRoles('ADMIN'), validarId('id_usuario'), endpoint(asignarRol, { body: AsignarRolDTO }));
 
 module.exports = router;
 module.exports.obtenerTodos = obtenerTodos;

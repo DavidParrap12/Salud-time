@@ -35,7 +35,7 @@ El servidor del frontend sirve los archivos de `frontend/public` y reenvía las 
 Cree una base de datos, por ejemplo:
 
 ```sql
-CREATE DATABASE salud_time;
+CREATE DATABASE saludtime;
 ```
 
 ## 2. Configurar el backend
@@ -50,14 +50,20 @@ Cree `backend/.env` a partir de este ejemplo y ajuste sus credenciales:
 ```env
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=salud_time
+DB_NAME=saludtime
 DB_USER=postgres
 DB_PASSWORD=postgres
 JWT_SECRET=cambie_esta_clave
 PORT=3000
 ```
 
-Cargue los datos de demostración (esto **elimina y recrea** las tablas):
+Cree las tablas y roles sin borrar datos existentes:
+
+```bash
+npm run db:init
+```
+
+Opcionalmente, cargue datos de demostración (esto **elimina y recrea** las tablas):
 
 ```bash
 npm run seed
@@ -114,10 +120,10 @@ Abra **http://localhost:4000** en el navegador.
 | Inicio de sesión  | `/inicio-sesion/login.html` | Autenticación contra `/api/auth/login`.                |
 | Registro          | `/inicio-sesion/registro.html` | Registro de pacientes.                              |
 | Panel             | `/principal.html`         | Resumen del día, dosis pendientes y confirmación.        |
-| Medicamentos      | `/medicamentos.html`      | Listado, creación, edición y desactivación.              |
+| Medicamentos      | `/medicamentos.html`      | Catálogo y creación de tratamientos del paciente.        |
 | Recordatorios     | `/recordatorios.html`     | Programación de horarios de los tratamientos.            |
 | Calendario        | `/calendario.html`        | Vista mensual y detalle de dosis por día.                |
-| Reportes          | `/reporte.html`           | Generación, estadísticas, cumplimiento y compartición.   |
+| Reportes          | `/reporte.html`           | Generación, estadísticas y cumplimiento.                 |
 
 ## Endpoints principales
 
@@ -152,7 +158,7 @@ Authorization: Bearer <token>
 | POST   | `/api/reportes`                           | Genera un reporte de adherencia.         |
 | GET    | `/api/reportes/:id/estadisticas`          | Estadísticas del reporte.                |
 | GET    | `/api/reportes/:id/cumplimiento`          | Nivel de cumplimiento.                   |
-| POST   | `/api/reportes/compartir`                 | Comparte un reporte por correo.          |
+| POST   | `/api/reportes/compartir`                 | Devuelve 501 hasta configurar el correo. |
 
 ## Verificación
 
@@ -160,9 +166,21 @@ Con el backend en ejecución y la base de datos cargada:
 
 ```bash
 cd backend
-npm run verify      # 41 pruebas HTTP
+npm run verify      # comprobaciones HTTP
 npm run verify:db   # 24 controles sobre PostgreSQL
+npm run verify:flow # prueba proxy → API → PostgreSQL (solo base *_test)
 ```
+
+`verify:flow` debe ejecutarse con `API_URL` apuntando al servidor del frontend y
+`DB_NAME` terminado en `_test`. Crea un paciente, medicamento, tratamiento,
+recordatorio y dosis; comprueba las filas en PostgreSQL y vuelve a consultarlas
+por la API. Deja esos registros en la base de prueba para comprobar persistencia.
+
+Para mostrar el flujo en el navegador: registre un paciente, inicie sesión,
+cree un medicamento y un tratamiento en **Medicamentos**, cree un horario en
+**Recordatorios** y abra **Calendario**. Recargue la página: los datos se leen
+otra vez desde PostgreSQL mediante `/api`. No ejecute `npm run seed` después de
+crear datos que quiera conservar: ese comando recrea las tablas.
 
 ## Estructura del proyecto
 

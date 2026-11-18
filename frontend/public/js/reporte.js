@@ -1,6 +1,6 @@
 /**
  * Reportes de adherencia: genera el reporte, consulta estadísticas y
- * cumplimiento, y permite compartirlo por correo (simulado por el backend).
+ * cumplimiento. El envío por correo se muestra como no disponible hasta configurarlo.
  */
 (async function iniciarReporte() {
   if (!SaludTime.exigirSesion()) return;

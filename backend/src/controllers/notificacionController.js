@@ -6,6 +6,8 @@ const CrearNotificacionDTO = require('../dtos/notificacion/CrearNotificacionDTO'
 const NotificacionResponseDTO = require('../dtos/notificacion/NotificacionResponseDTO');
 const { ok, created } = require('../views/response');
 const { NotFoundError } = require('../errors/AppError');
+const { exigirPropietario } = require('../utils/acceso');
+const { autorizarRoles } = require('../middlewares/authMiddleware');
 
 const router = Router();
 
@@ -13,7 +15,8 @@ const router = Router();
 // Orquestación de los casos de uso
 // ==========================================
 
-const listarPorUsuario = async ({ params }) => {
+const listarPorUsuario = async ({ params, usuario: actor }) => {
+  exigirPropietario(actor, params.id_usuario);
   const lista = await Notificacion.findAll({
     where: { id_usuario_destinatario: params.id_usuario }
   });
@@ -32,9 +35,10 @@ const crear = async ({ body: dto }) => {
   return created(new NotificacionResponseDTO(notificacion), 'Notificación creada');
 };
 
-const marcarLeida = async ({ params }) => {
+const marcarLeida = async ({ params, usuario: actor }) => {
   const notificacion = await Notificacion.findByPk(params.id);
   if (!notificacion) throw new NotFoundError('Notificación no encontrada');
+  exigirPropietario(actor, notificacion.id_usuario_destinatario);
 
   await notificacion.update({ estado: 'LEIDA' });
   return ok(new NotificacionResponseDTO(notificacion), 'Notificación marcada como leída');
@@ -44,7 +48,7 @@ const marcarLeida = async ({ params }) => {
 // Endpoints definidos en el Controller
 // ==========================================
 router.get('/usuario/:id_usuario', validarId('id_usuario'), endpoint(listarPorUsuario));
-router.post('/', endpoint(crear, { body: CrearNotificacionDTO }));
+router.post('/', autorizarRoles('ADMIN'), endpoint(crear, { body: CrearNotificacionDTO }));
 router.patch('/:id/leida', validarId(), endpoint(marcarLeida));
 
 module.exports = router;

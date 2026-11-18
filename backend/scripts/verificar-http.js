@@ -102,7 +102,9 @@ async function principal() {
   // 4. Catálogos protegidos con JWT
   await probar('Especializaciones', 'GET', '/api/especializaciones', { headers: auth() });
   await probar('Roles', 'GET', '/api/roles', { headers: auth() });
-  await probar('Usuarios', 'GET', '/api/usuarios', { headers: auth() });
+  await probar('Usuarios restringidos a administradores', 'GET', '/api/usuarios', {
+    headers: auth(), esperados: [403]
+  });
 
   // 4. Medicamentos (CRUD + validación)
   await probar('Listar medicamentos', 'GET', '/api/medicamentos', { headers: auth() });
@@ -195,14 +197,19 @@ async function principal() {
   }
 
   // 8. Notificaciones
+  const loginCuidador = await pedir('POST', '/api/auth/login', {
+    body: { correo: 'cuidador@saludtime.com', contrasena: 'Salud1234' }
+  });
+  const tokenCuidador = loginCuidador.data?.data?.token;
+  const authCuidador = { Authorization: `Bearer ${tokenCuidador}` };
   const notificaciones = await probar('Notificaciones del cuidador', 'GET', '/api/notificaciones/usuario/3', {
-    headers: auth()
+    headers: authCuidador
   });
 
   const notificacion = notificaciones.data?.data?.[0];
   if (notificacion) {
     await probar(`Marcar notificación ${notificacion.id_notificacion} como leída`, 'PATCH', `/api/notificaciones/${notificacion.id_notificacion}/leida`, {
-      headers: auth()
+      headers: authCuidador
     });
   }
 
@@ -232,12 +239,15 @@ async function principal() {
     });
     await probar('Compartir reporte', 'POST', '/api/reportes/compartir', {
       body: { id_reporte: idReporte, correo_destino: 'cuidador@saludtime.com' },
+      esperados: [501],
       headers: auth()
     });
   }
 
   // 11. Errores controlados
-  await probar('Ruta inexistente', 'GET', '/api/ruta-inexistente', { esperados: [404] });
+  await probar('Ruta inexistente', 'GET', '/api/ruta-inexistente', {
+    esperados: [404], headers: auth()
+  });
   await probar('Recurso inexistente', 'GET', '/api/medicamentos/999999', {
     esperados: [404],
     headers: auth()

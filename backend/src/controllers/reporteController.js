@@ -8,10 +8,11 @@ const CompartirReporteDTO = require('../dtos/reporte/CompartirReporteDTO');
 const ReporteResponseDTO = require('../dtos/reporte/ReporteResponseDTO');
 const ReporteEstadisticasResponseDTO = require('../dtos/reporte/ReporteEstadisticasResponseDTO');
 const CumplimientoResponseDTO = require('../dtos/reporte/CumplimientoResponseDTO');
-const CompartirReporteResponseDTO = require('../dtos/reporte/CompartirReporteResponseDTO');
 const { ok, created } = require('../views/response');
-const { NotFoundError } = require('../errors/AppError');
+const { AppError, NotFoundError } = require('../errors/AppError');
 const { aFechaLocal } = require('../utils/fechas');
+const { exigirAccesoPaciente } = require('../utils/acceso');
+const { asegurarDosisPaciente } = require('../utils/programarDosis');
 
 const router = Router();
 
@@ -28,9 +29,11 @@ const porcentaje = (parte, total) =>
 // Orquestación de los casos de uso
 // ==========================================
 
-const generar = async ({ body: dto }) => {
+const generar = async ({ body: dto, usuario: actor }) => {
+  await exigirAccesoPaciente(actor, dto.id_usuario);
   const usuario = await Usuario.findByPk(dto.id_usuario);
   if (!usuario) throw new NotFoundError('Usuario no encontrado');
+  await asegurarDosisPaciente(dto.id_usuario, aFechaLocal(dto.fecha_inicio), aFechaLocal(dto.fecha_fin));
 
   const tratamientos = await Tratamiento.findAll({
     where: { id_paciente: dto.id_usuario },
@@ -77,13 +80,15 @@ const generar = async ({ body: dto }) => {
   return created(new ReporteResponseDTO(reporte), 'Reporte generado');
 };
 
-const obtener = async ({ params }) => {
+const obtener = async ({ params, usuario: actor }) => {
   const reporte = await buscarReporte(params.id);
+  await exigirAccesoPaciente(actor, reporte.id_usuario);
   return ok(new ReporteResponseDTO(reporte));
 };
 
-const estadisticas = async ({ params }) => {
+const estadisticas = async ({ params, usuario: actor }) => {
   const reporte = await buscarReporte(params.id);
+  await exigirAccesoPaciente(actor, reporte.id_usuario);
   const pendientes = Math.max(reporte.total - reporte.tomadas - reporte.omitidas, 0);
 
   return ok(new ReporteEstadisticasResponseDTO({
@@ -94,8 +99,9 @@ const estadisticas = async ({ params }) => {
   }));
 };
 
-const cumplimiento = async ({ params }) => {
+const cumplimiento = async ({ params, usuario: actor }) => {
   const reporte = await buscarReporte(params.id);
+  await exigirAccesoPaciente(actor, reporte.id_usuario);
 
   let nivel = 'BAJA';
   let mensaje = 'La adherencia es baja; se recomienda seguimiento.';
@@ -115,14 +121,10 @@ const cumplimiento = async ({ params }) => {
   }));
 };
 
-const compartir = async ({ body: dto }) => {
+const compartir = async ({ body: dto, usuario: actor }) => {
   const reporte = await buscarReporte(dto.id_reporte);
-
-  return ok(new CompartirReporteResponseDTO({
-    id_reporte: reporte.id_reporte,
-    correo_destino: dto.correo_destino,
-    enviado: true
-  }), `Reporte compartido con ${dto.correo_destino}`);
+  await exigirAccesoPaciente(actor, reporte.id_usuario);
+  throw new AppError(501, 'El envío por correo aún no está configurado');
 };
 
 // ==========================================
